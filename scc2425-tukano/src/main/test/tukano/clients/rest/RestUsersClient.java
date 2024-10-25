@@ -11,7 +11,7 @@ import tukano.api.Users;
 import tukano.api.rest.RestUsers;
 
 
-public class RestUsersClient extends RestClient implements Users {
+public class RestUsersClient extends tukano.clients.rest.RestClient implements Users {
 
 	public RestUsersClient( String serverURI ) {
 		super( serverURI, RestUsers.PATH );

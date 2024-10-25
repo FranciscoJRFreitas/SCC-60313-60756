@@ -9,6 +9,7 @@ import org.glassfish.jersey.server.ResourceConfig;
 import tukano.impl.Token;
 import utils.Args;
 import utils.IP;
+import utils.Props;
 
 
 public class TukanoRestServer {
@@ -25,7 +26,7 @@ public class TukanoRestServer {
 		System.setProperty("java.util.logging.SimpleFormatter.format", "%4$s: %5$s");
 	}
 	
-	protected TukanoRestServer() {
+	public TukanoRestServer() {
 		serverURI = String.format(SERVER_BASE_URI, IP.hostname(), PORT);
 	}
 
@@ -48,7 +49,7 @@ public class TukanoRestServer {
 		Args.use(args);
 		
 		Token.setSecret( Args.valueOf("-secret", ""));
-//		Props.load( Args.valueOf("-props", "").split(","));
+		//Props.load( Args.valueOf("-props", "").split(","));
 		
 		new TukanoRestServer().start();
 	}

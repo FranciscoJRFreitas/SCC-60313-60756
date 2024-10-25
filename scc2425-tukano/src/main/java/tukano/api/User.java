@@ -8,14 +8,17 @@ public class User {
 	
 	@Id
 	private String userId;
+
+	private String id;
 	private String pwd;
-	private String email;	
+	private String email;
 	private String displayName;
 
 	public User() {}
 	
 	public User(String userId, String pwd, String email, String displayName) {
 		this.pwd = pwd;
+		this.id = userId;
 		this.email = email;
 		this.userId = userId;
 		this.displayName = displayName;
@@ -44,6 +47,13 @@ public class User {
 	}
 	public void setDisplayName(String displayName) {
 		this.displayName = displayName;
+	}
+	public String getId() {
+		return id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
 	}
 	
 	public String userId() {

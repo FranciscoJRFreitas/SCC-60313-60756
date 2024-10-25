@@ -8,7 +8,7 @@ import static tukano.api.Result.errorOrVoid;
 import static tukano.api.Result.ok;
 import static tukano.api.Result.ErrorCode.BAD_REQUEST;
 import static tukano.api.Result.ErrorCode.FORBIDDEN;
-import static utils.DB.getOne;
+import static utils.db.DB.getOne;
 
 import java.util.List;
 import java.util.UUID;
@@ -22,7 +22,7 @@ import tukano.api.User;
 import tukano.impl.data.Following;
 import tukano.impl.data.Likes;
 import tukano.impl.rest.TukanoRestServer;
-import utils.DB;
+import utils.db.DB;
 
 public class JavaShorts implements Shorts {
 

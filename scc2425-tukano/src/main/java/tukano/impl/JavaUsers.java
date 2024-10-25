@@ -8,6 +8,7 @@ import static tukano.api.Result.ok;
 import static tukano.api.Result.ErrorCode.BAD_REQUEST;
 import static tukano.api.Result.ErrorCode.FORBIDDEN;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
@@ -15,7 +16,7 @@ import java.util.logging.Logger;
 import tukano.api.Result;
 import tukano.api.User;
 import tukano.api.Users;
-import utils.DB;
+import utils.db.CosmosDBLayer;
 
 public class JavaUsers implements Users {
 	
@@ -35,10 +36,12 @@ public class JavaUsers implements Users {
 	public Result<String> createUser(User user) {
 		Log.info(() -> format("createUser : %s\n", user));
 
-		if( badUserInfo( user ) )
+		if(badUserInfo(user))
 				return error(BAD_REQUEST);
 
-		return errorOrValue( DB.insertOne( user), user.getUserId() );
+		user.setId(user.getUserId());
+
+		return errorOrValue( CosmosDBLayer.getInstance().insertOne(user), user.getUserId() );
 	}
 
 	@Override
@@ -48,7 +51,7 @@ public class JavaUsers implements Users {
 		if (userId == null)
 			return error(BAD_REQUEST);
 		
-		return validatedUserOrError( DB.getOne( userId, User.class), pwd);
+		return validatedUserOrError( CosmosDBLayer.getInstance().getOne( userId, User.class), pwd);
 	}
 
 	@Override
@@ -58,7 +61,7 @@ public class JavaUsers implements Users {
 		if (badUpdateUserInfo(userId, pwd, other))
 			return error(BAD_REQUEST);
 
-		return errorOrResult( validatedUserOrError(DB.getOne( userId, User.class), pwd), user -> DB.updateOne( user.updateFrom(other)));
+		return errorOrResult( validatedUserOrError(CosmosDBLayer.getInstance().getOne( userId, User.class), pwd), user -> CosmosDBLayer.getInstance().updateOne( user.updateFrom(other)));
 	}
 
 	@Override
@@ -68,7 +71,7 @@ public class JavaUsers implements Users {
 		if (userId == null || pwd == null )
 			return error(BAD_REQUEST);
 
-		return errorOrResult( validatedUserOrError(DB.getOne( userId, User.class), pwd), user -> {
+		return errorOrResult( validatedUserOrError(CosmosDBLayer.getInstance().getOne( userId, User.class), pwd), user -> {
 
 			// Delete user shorts and related info asynchronously in a separate thread
 			Executors.defaultThreadFactory().newThread( () -> {
@@ -76,24 +79,28 @@ public class JavaUsers implements Users {
 				JavaBlobs.getInstance().deleteAllBlobs(userId, Token.get(userId));
 			}).start();
 			
-			return DB.deleteOne( user);
+			return CosmosDBLayer.getInstance().deleteOne( user);
 		});
 	}
 
 	@Override
 	public Result<List<User>> searchUsers(String pattern) {
-		Log.info( () -> format("searchUsers : patterns = %s\n", pattern));
+		Log.info(() -> String.format("searchUsers : pattern = %s\n", pattern));
+		String query = String.format("SELECT * FROM User u WHERE UPPER(u.userId) LIKE '%%%s%%'", pattern.toUpperCase());
+		Result<List<User>> result = CosmosDBLayer.getInstance().query(User.class, query);
 
-		var query = format("SELECT * FROM User u WHERE UPPER(u.userId) LIKE '%%%s%%'", pattern.toUpperCase());
-		var hits = DB.sql(query, User.class)
-				.stream()
-				.map(User::copyWithoutPassword)
-				.toList();
+		if (result.isOK()) {
+			List<User> hits = result.value()
+					.stream()
+					.map(User::copyWithoutPassword)
+					.toList();
 
-		return ok(hits);
+			return Result.ok(hits);
+		} else {
+			return Result.error(result.error());
+		}
 	}
 
-	
 	private Result<User> validatedUserOrError( Result<User> res, String pwd ) {
 		if( res.isOK())
 			return res.value().getPwd().equals( pwd ) ? res : error(FORBIDDEN);
