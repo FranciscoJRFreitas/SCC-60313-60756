@@ -18,7 +18,7 @@ import tukano.api.Result;
 import tukano.api.Result.ErrorCode;
 import tukano.impl.rest.utils.CustomLoggingFilter;
 
-
+//Change the containers
 public class CosmosDBLayer {
     private static final String CONNECTION_URL = "https://cosmos6031360756.documents.azure.com:443/";
     private static final String DB_KEY = "qmSP9N9KECvGGO2WCbsEs9Ay44E3ISkbWmbckbP50M7loCqIsQU5M2ybvoK2PaJ7o4z21G53UTqkACDbfCXG3A==";
