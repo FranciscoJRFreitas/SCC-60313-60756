@@ -29,6 +29,7 @@ tukano\api\Result.class
 utils\Props.class
 tukano\impl\data\Following.class
 utils\Args.class
+utils\db\RedisCache.class
 utils\IP.class
 tukano\impl\rest\RestBlobsResource.class
 tukano\clients\rest\RestShortsClient$2.class

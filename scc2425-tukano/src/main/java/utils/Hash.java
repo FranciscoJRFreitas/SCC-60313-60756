@@ -33,6 +33,11 @@ public class Hash {
 			sha256.update( data == null ? new byte[0] : data );
 			return sha256.digest();
 		}
+
+		public static String sha256(String data) {
+			byte[] hashBytes = sha256(data.getBytes());
+			return String.format("%064x", new BigInteger(1, hashBytes));
+		}
 		
 		
 		synchronized public static String of(Object ...values) {

@@ -6,13 +6,13 @@ import static tukano.api.Result.errorOrResult;
 import static tukano.api.Result.errorOrValue;
 import static tukano.api.Result.errorOrVoid;
 import static tukano.api.Result.ok;
-import static tukano.api.Result.ErrorCode.BAD_REQUEST;
 import static tukano.api.Result.ErrorCode.FORBIDDEN;
 import static utils.db.DB.getOne;
 
 import java.util.List;
 import java.util.UUID;
 import java.util.logging.Logger;
+import redis.clients.jedis.*;
 
 import tukano.api.Blobs;
 import tukano.api.Result;
@@ -22,11 +22,16 @@ import tukano.api.User;
 import tukano.impl.data.Following;
 import tukano.impl.data.Likes;
 import tukano.impl.rest.TukanoRestServer;
+import utils.JSON;
+import utils.db.CosmosDBLayer;
+import utils.db.RedisCache;
 import utils.db.DB;
 
 public class JavaShorts implements Shorts {
 
 	private static Logger Log = Logger.getLogger(JavaShorts.class.getName());
+	private static final String SHORT_CACHE_PREFIX = "shorts:";
+	private static final String NUM_USERS_COUNTER = "NumUsers";
 	
 	private static Shorts instance;
 	
@@ -37,23 +42,32 @@ public class JavaShorts implements Shorts {
 	}
 	
 	private JavaShorts() {}
-	
-	
+
 	@Override
 	public Result<Short> createShort(String userId, String password) {
 		Log.info(() -> format("createShort : userId = %s, pwd = %s\n", userId, password));
 
-		return errorOrResult( okUser(userId, password), user -> {
-			
-			var shortId = format("%s+%s", userId, UUID.randomUUID());
-			var blobUrl = format("%s/%s/%s", TukanoRestServer.serverURI, Blobs.NAME, shortId); 
-			var shrt = new Short(shortId, userId, blobUrl);
 
-			return errorOrValue(DB.insertOne(shrt), s -> s.copyWithLikes_And_Token(0));
+		return errorOrResult(okUser(userId, password), user -> {
+			var shortId = format("%s+%s", userId, UUID.randomUUID());
+			var blobUrl = format("%s/%s/%s", TukanoRestServer.serverURI, Blobs.NAME, shortId);
+			var shrt = new Short(shortId, userId, blobUrl);
+			Result<Short> res = errorOrValue(CosmosDBLayer.getInstance().insertOne(shrt), s -> s.copyWithLikes_And_Token(0));
+
+			// Cache short in Redis
+			try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+				var key = SHORT_CACHE_PREFIX + shortId;
+				var value = JSON.encode(shrt);
+				jedis.set(key, value);
+				jedis.expire(key, 259200); // 3-day expiration
+			}
+
+			return res;
 		});
 	}
 
-	@Override
+	//TODO FALTA FAZER O GET E MUDAR CONTAINERS NA COSMOSDBLAYER!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	/* @Override
 	public Result<Short> getShort(String shortId) {
 		Log.info(() -> format("getShort : shortId = %s\n", shortId));
 
@@ -63,6 +77,31 @@ public class JavaShorts implements Shorts {
 		var query = format("SELECT count(*) FROM Likes l WHERE l.shortId = '%s'", shortId);
 		var likes = DB.sql(query, Long.class);
 		return errorOrValue( getOne(shortId, Short.class), shrt -> shrt.copyWithLikes_And_Token( likes.get(0)));
+	}*/
+	@Override
+	public Result<Short> getShort(String shortId) {
+		if (shortId == null)
+			return error(Result.ErrorCode.BAD_REQUEST);
+
+		// Retrieve from Redis if available
+		try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+			var key = SHORT_CACHE_PREFIX + shortId;
+			String cachedValue = jedis.get(key);
+			if (cachedValue != null) {
+				Short cachedShort = JSON.decode(cachedValue, Short.class);
+				return ok(cachedShort);
+			}
+		}
+
+		// Fallback to DB retrieval if not cached
+		return errorOrValue(getOne(shortId, Short.class), shrt -> {
+			try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+				var key = SHORT_CACHE_PREFIX + shortId;
+				jedis.set(key, JSON.encode(shrt));
+				jedis.expire(key, 86400); // Cache for 1 day
+			}
+			return shrt;
+		});
 	}
 
 	

@@ -16,6 +16,7 @@ import java.util.logging.Logger;
 import tukano.api.Result;
 import tukano.api.User;
 import tukano.api.Users;
+import utils.Hash;
 import utils.db.CosmosDBLayer;
 
 public class JavaUsers implements Users {
@@ -40,6 +41,7 @@ public class JavaUsers implements Users {
 				return error(BAD_REQUEST);
 
 		user.setId(user.getUserId());
+		user.setPwd(Hash.sha256(user.getPwd()));
 
 		return errorOrValue( CosmosDBLayer.getInstance().insertOne(user), user.getUserId() );
 	}
@@ -48,9 +50,9 @@ public class JavaUsers implements Users {
 	public Result<User> getUser(String userId, String pwd) {
 		Log.info( () -> format("getUser : userId = %s, pwd = %s\n", userId, pwd));
 
-		if (userId == null)
+		if (userId == null || pwd == null)
 			return error(BAD_REQUEST);
-		
+
 		return validatedUserOrError( CosmosDBLayer.getInstance().getOne( userId, User.class), pwd);
 	}
 
@@ -60,6 +62,8 @@ public class JavaUsers implements Users {
 
 		if (badUpdateUserInfo(userId, pwd, other))
 			return error(BAD_REQUEST);
+
+		other.setPwd(Hash.sha256(pwd));
 
 		return errorOrResult( validatedUserOrError(CosmosDBLayer.getInstance().getOne( userId, User.class), pwd), user -> CosmosDBLayer.getInstance().updateOne( user.updateFrom(other)));
 	}
@@ -103,13 +107,16 @@ public class JavaUsers implements Users {
 
 	private Result<User> validatedUserOrError( Result<User> res, String pwd ) {
 		if( res.isOK())
-			return res.value().getPwd().equals( pwd ) ? res : error(FORBIDDEN);
+			return res.value().getPwd().equals(Hash.sha256(pwd)) ? res : error(FORBIDDEN);
 		else
 			return res;
 	}
 	
-	private boolean badUserInfo( User user) {
-		return (user.userId() == null || user.pwd() == null || user.displayName() == null || user.email() == null);
+	private boolean badUserInfo(User user) {
+		return (user.userId() == null
+				|| user.pwd() == null
+				|| user.displayName() == null
+				|| user.email() == null);
 	}
 	
 	private boolean badUpdateUserInfo( String userId, String pwd, User info) {
