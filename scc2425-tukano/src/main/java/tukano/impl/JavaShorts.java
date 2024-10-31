@@ -19,8 +19,9 @@ import tukano.api.Short;
 import tukano.api.Shorts;
 import tukano.api.User;
 import tukano.impl.data.Following;
-import tukano.impl.data.BooleanData;
+import tukano.impl.data.FollowingData;
 import tukano.impl.data.Likes;
+import tukano.impl.data.LikesData;
 import tukano.impl.rest.TukanoRestServer;
 import utils.JSON;
 import utils.db.CosmosDBLayer;
@@ -189,6 +190,8 @@ public class JavaShorts implements Shorts {
 		});
 	}
 
+	//TODO |||||||||||||||||||||||||||||||||||||||||||||||||| Fica a faltar blobs e implementar e testar este métodos abaixo |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+	//TODO REVER E TESTAR GETSHORTS
 	@Override
 	public Result<List<String>> getShorts(String userId) {
 		Log.info(() -> format("getShorts : userId = %s\n", userId));
@@ -198,15 +201,15 @@ public class JavaShorts implements Shorts {
 	}
 
 	@Override
-	public Result<Void> follow(String userId1, String userId2, BooleanData isFollowing, String password) {
-		Log.info(() -> format("follow : userId1 = %s, userId2 = %s, isFollowing = %s, pwd = %s\n", userId1, userId2, isFollowing, password));
+	public Result<Void> follow(String userId1, String userId2, FollowingData isFollowing, String password) {
+		Log.info(() -> format("follow : userId1 = %s, userId2 = %s, isFollowing = %s, pwd = %s\n", userId1, userId2, isFollowing.getValue(), password));
 	
 		
 		return errorOrResult( okUser(userId1, password), user -> {
 			var f = new Following(userId1, userId2);
 			f.setId();
 			return errorOrVoid( okUser( userId2), isFollowing.getValue() ? CosmosDBLayer.getInstance().insertOne( f, FOLLOWS_CONTAINER ) : CosmosDBLayer.getInstance().deleteOne( f, FOLLOWS_CONTAINER ));
-		});			
+		});
 	}
 
 	@Override
@@ -218,8 +221,8 @@ public class JavaShorts implements Shorts {
 	}
 
 	@Override
-	public Result<Void> like(String shortId, String userId, BooleanData isLiked, String password) {
-		Log.info(() -> format("like : shortId = %s, userId = %s, isLiked = %s, pwd = %s\n", shortId, userId, isLiked, password));
+	public Result<Void> like(String shortId, String userId, LikesData isLiked, String password) {
+		Log.info(() -> format("like : shortId = %s, userId = %s, isLiked = %s, pwd = %s\n", shortId, userId, isLiked.getValue(), password));
 
 		
 		return errorOrResult( getShort(shortId), shrt -> {
@@ -240,6 +243,7 @@ public class JavaShorts implements Shorts {
 		});
 	}
 
+	//TODO REVER E TESTAR FEED
 	@Override
 	public Result<List<String>> getFeed(String userId, String password) {
 		Log.info(() -> format("getFeed : userId = %s, pwd = %s\n", userId, password));
@@ -266,7 +270,8 @@ public class JavaShorts implements Shorts {
 		else
 			return error( res.error() );
 	}
-	
+
+	//TODO REVER E TESTAR FEED
 	@Override
 	public Result<Void> deleteAllShorts(String userId, String password, String token) {
 		Log.info(() -> format("deleteAllShorts : userId = %s, password = %s, token = %s\n", userId, password, token));

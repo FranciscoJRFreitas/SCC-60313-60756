@@ -12,7 +12,8 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import tukano.api.Short;
-import tukano.impl.data.BooleanData;
+import tukano.impl.data.FollowingData;
+import tukano.impl.data.LikesData;
 
 @Path(RestShorts.PATH)
 public interface RestShorts {
@@ -52,7 +53,7 @@ public interface RestShorts {
 	@POST
 	@Path("/{" + USER_ID1 + "}/{" + USER_ID2 + "}" + FOLLOWERS )
 	@Consumes(MediaType.APPLICATION_JSON)
-	void follow(@PathParam(USER_ID1) String userId1, @PathParam(USER_ID2) String userId2, BooleanData isFollowing, @QueryParam(PWD) String password);
+	void follow(@PathParam(USER_ID1) String userId1, @PathParam(USER_ID2) String userId2, FollowingData isFollowing, @QueryParam(PWD) String password);
 
 	@GET
 	@Path("/{" + USER_ID + "}" + FOLLOWERS )
@@ -62,7 +63,7 @@ public interface RestShorts {
 	@POST
 	@Path("/{" + SHORT_ID + "}/{" + USER_ID + "}" + LIKES )
 	@Consumes(MediaType.APPLICATION_JSON)
-	void like(@PathParam(SHORT_ID) String shortId, @PathParam(USER_ID) String userId, BooleanData isLiked,  @QueryParam(PWD) String password);
+	void like(@PathParam(SHORT_ID) String shortId, @PathParam(USER_ID) String userId, LikesData isLiked, @QueryParam(PWD) String password);
 
 	@GET
 	@Path("/{" + SHORT_ID + "}" + LIKES )
