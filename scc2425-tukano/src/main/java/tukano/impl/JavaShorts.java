@@ -32,6 +32,7 @@ public class JavaShorts implements Shorts {
 	private static Logger Log = Logger.getLogger(JavaShorts.class.getName());
 	private static final String SHORT_CACHE_PREFIX = "shorts:";
 	private static final String NUM_USERS_COUNTER = "NumUsers";
+	private static final String SHORTS_CONTAINER = "shorts";
 	
 	private static Shorts instance;
 	
@@ -47,12 +48,11 @@ public class JavaShorts implements Shorts {
 	public Result<Short> createShort(String userId, String password) {
 		Log.info(() -> format("createShort : userId = %s, pwd = %s\n", userId, password));
 
-
 		return errorOrResult(okUser(userId, password), user -> {
 			var shortId = format("%s+%s", userId, UUID.randomUUID());
 			var blobUrl = format("%s/%s/%s", TukanoRestServer.serverURI, Blobs.NAME, shortId);
 			var shrt = new Short(shortId, userId, blobUrl);
-			Result<Short> res = errorOrValue(CosmosDBLayer.getInstance().insertOne(shrt), s -> s.copyWithLikes_And_Token(0));
+			Result<Short> res = errorOrValue(CosmosDBLayer.getInstance().insertOne(shrt, SHORTS_CONTAINER), s -> s.copyWithLikes_And_Token(0));
 
 			// Cache short in Redis
 			try (Jedis jedis = RedisCache.getCachePool().getResource()) {
@@ -66,7 +66,7 @@ public class JavaShorts implements Shorts {
 		});
 	}
 
-	//TODO FALTA FAZER O GET E MUDAR CONTAINERS NA COSMOSDBLAYER!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	//TODO FALTA FAZER O GET!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	/* @Override
 	public Result<Short> getShort(String shortId) {
 		Log.info(() -> format("getShort : shortId = %s\n", shortId));
@@ -94,36 +94,69 @@ public class JavaShorts implements Shorts {
 		}
 
 		// Fallback to DB retrieval if not cached
-		return errorOrValue(getOne(shortId, Short.class), shrt -> {
+		return errorOrValue(CosmosDBLayer.getInstance().getOne(shortId, Short.class, SHORTS_CONTAINER), shrt -> {
 			try (Jedis jedis = RedisCache.getCachePool().getResource()) {
 				var key = SHORT_CACHE_PREFIX + shortId;
 				jedis.set(key, JSON.encode(shrt));
-				jedis.expire(key, 86400); // Cache for 1 day
+				jedis.expire(key, 259200); // Cache for 3 days
 			}
 			return shrt;
 		});
 	}
 
-	
-	@Override
+
+	/*@Override
 	public Result<Void> deleteShort(String shortId, String password) {
 		Log.info(() -> format("deleteShort : shortId = %s, pwd = %s\n", shortId, password));
-		
+
 		return errorOrResult( getShort(shortId), shrt -> {
-			
+
 			return errorOrResult( okUser( shrt.getOwnerId(), password), user -> {
 				return DB.transaction( hibernate -> {
 
 					hibernate.remove( shrt);
-					
+
 					var query = format("DELETE Likes l WHERE l.shortId = '%s'", shortId);
 					hibernate.createNativeQuery( query, Likes.class).executeUpdate();
-					
+
 					JavaBlobs.getInstance().delete(shrt.getBlobUrl(), Token.get() );
 				});
-			});	
+			});
+		});
+	}*/
+
+	@Override
+	public Result<Void> deleteShort(String shortId, String password) {
+		Log.info(() -> format("deleteShort : shortId = %s, pwd = %s\n", shortId, password));
+
+		return errorOrResult(getShort(shortId), shrt -> {
+
+			return errorOrResult(okUser(shrt.getOwnerId(), password), user -> {
+				return DB.transaction(hibernate -> {
+
+					// Delete from Hibernate
+					hibernate.remove(shrt);
+					var query = format("DELETE FROM Likes l WHERE l.shortId = '%s'", shortId);
+					hibernate.createNativeQuery(query, Likes.class).executeUpdate();
+
+					// Delete blob from JavaBlobs
+					JavaBlobs.getInstance().delete(shrt.getBlobUrl(), Token.get());
+
+					// Delete from Redis cache
+					try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+						var key = SHORT_CACHE_PREFIX + shortId;
+						jedis.del(key);  // Delete from Redis
+					}
+
+					// Delete from CosmosDB
+					CosmosDBLayer.getInstance().deleteOne(shrt, SHORTS_CONTAINER);
+
+					return Result.ok();
+				});
+			});
 		});
 	}
+
 
 	@Override
 	public Result<List<String>> getShorts(String userId) {

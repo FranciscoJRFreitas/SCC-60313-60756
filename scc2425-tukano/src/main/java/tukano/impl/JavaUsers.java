@@ -23,6 +23,8 @@ public class JavaUsers implements Users {
 	
 	private static Logger Log = Logger.getLogger(JavaUsers.class.getName());
 
+	private static final String USERS_CONTAINER = "users";
+
 	private static Users instance;
 	
 	synchronized public static Users getInstance() {
@@ -43,7 +45,7 @@ public class JavaUsers implements Users {
 		user.setId(user.getUserId());
 		user.setPwd(Hash.sha256(user.getPwd()));
 
-		return errorOrValue( CosmosDBLayer.getInstance().insertOne(user), user.getUserId() );
+		return errorOrValue( CosmosDBLayer.getInstance().insertOne(user, USERS_CONTAINER), user.getUserId() );
 	}
 
 	@Override
@@ -53,7 +55,7 @@ public class JavaUsers implements Users {
 		if (userId == null || pwd == null)
 			return error(BAD_REQUEST);
 
-		return validatedUserOrError( CosmosDBLayer.getInstance().getOne( userId, User.class), pwd);
+		return validatedUserOrError( CosmosDBLayer.getInstance().getOne( userId, User.class, USERS_CONTAINER), pwd);
 	}
 
 	@Override
@@ -65,7 +67,7 @@ public class JavaUsers implements Users {
 
 		other.setPwd(Hash.sha256(pwd));
 
-		return errorOrResult( validatedUserOrError(CosmosDBLayer.getInstance().getOne( userId, User.class), pwd), user -> CosmosDBLayer.getInstance().updateOne( user.updateFrom(other)));
+		return errorOrResult( validatedUserOrError(CosmosDBLayer.getInstance().getOne( userId, User.class, USERS_CONTAINER), pwd), user -> CosmosDBLayer.getInstance().updateOne( user.updateFrom(other), USERS_CONTAINER));
 	}
 
 	@Override
@@ -75,7 +77,7 @@ public class JavaUsers implements Users {
 		if (userId == null || pwd == null )
 			return error(BAD_REQUEST);
 
-		return errorOrResult( validatedUserOrError(CosmosDBLayer.getInstance().getOne( userId, User.class), pwd), user -> {
+		return errorOrResult( validatedUserOrError(CosmosDBLayer.getInstance().getOne( userId, User.class, USERS_CONTAINER), pwd), user -> {
 
 			// Delete user shorts and related info asynchronously in a separate thread
 			Executors.defaultThreadFactory().newThread( () -> {
@@ -83,7 +85,7 @@ public class JavaUsers implements Users {
 				JavaBlobs.getInstance().deleteAllBlobs(userId, Token.get(userId));
 			}).start();
 			
-			return CosmosDBLayer.getInstance().deleteOne( user);
+			return CosmosDBLayer.getInstance().deleteOne(user, USERS_CONTAINER);
 		});
 	}
 
@@ -91,7 +93,7 @@ public class JavaUsers implements Users {
 	public Result<List<User>> searchUsers(String pattern) {
 		Log.info(() -> String.format("searchUsers : pattern = %s\n", pattern));
 		String query = String.format("SELECT * FROM User u WHERE UPPER(u.userId) LIKE '%%%s%%'", pattern.toUpperCase());
-		Result<List<User>> result = CosmosDBLayer.getInstance().query(User.class, query);
+		Result<List<User>> result = CosmosDBLayer.getInstance().query(User.class, query, USERS_CONTAINER);
 
 		if (result.isOK()) {
 			List<User> hits = result.value()

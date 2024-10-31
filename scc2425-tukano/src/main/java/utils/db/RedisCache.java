@@ -1,6 +1,7 @@
 package utils.db;
 
-import redis.clients.jedis.*;
+import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.Jedis;
 
 public class RedisCache {
 

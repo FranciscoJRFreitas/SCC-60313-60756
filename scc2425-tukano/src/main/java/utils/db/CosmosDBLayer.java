@@ -20,12 +20,10 @@ import tukano.impl.rest.utils.CustomLoggingFilter;
 
 //Change the containers
 public class CosmosDBLayer {
-    private static final String CONNECTION_URL = "https://cosmos6031360756.documents.azure.com:443/";
-    private static final String DB_KEY = "qmSP9N9KECvGGO2WCbsEs9Ay44E3ISkbWmbckbP50M7loCqIsQU5M2ybvoK2PaJ7o4z21G53UTqkACDbfCXG3A==";
+    private static final String CONNECTION_URL = "https://cosmosdb6031360756.documents.azure.com:443/";
+    private static final String DB_KEY = "QIvPOerJ4SxHaPBGmU5aPe5GCdKGXLFNNhRTUgPnGzyF4ghC12jcSscIiySpJNqiQG1IzUpXSXX4ACDbWJd2fw==";
     private static final String DB_NAME = "cosmosdb6031360756";
-    private static final String CONTAINER = "users";
     private static Logger Log = Logger.getLogger(CosmosDBLayer.class.getName());
-
     private static CosmosDBLayer instance;
 
     public static synchronized CosmosDBLayer getInstance() {
@@ -49,47 +47,60 @@ public class CosmosDBLayer {
 
     private CosmosClient client;
     private CosmosDatabase db;
-    private CosmosContainer container;
 
 
     public CosmosDBLayer(CosmosClient client) {
         this.client = client;
     }
 
+
     private synchronized void init() {
-        if (db == null || container == null) {
-            Log.info("Initializing Cosmos DB database and container.");
+        if (db == null) {
+            Log.info("Initializing Cosmos DB database.");
             db = client.getDatabase(DB_NAME); // Check the actual database name
-            container = db.getContainer(CONTAINER); // Check the container name
-            Log.info(String.format("Database: %s, Container: %s initialized", DB_NAME, CONTAINER));
         }
     }
-
     public void close() {
         client.close();
     }
 
-    public <T> Result<T> getOne(String id, Class<T> clazz) {
+    public <T> Result<T> getOne(String id, Class<T> clazz, String container) {
         Log.info(() -> String.format("Getting item with id: %s", id));
-        return tryCatch(() -> container.readItem(id, new PartitionKey(id), clazz).getItem());
-    }
-
-    public <T> Result<T> deleteOne(T obj) {
-        return (Result<T>) tryCatch( () -> container.deleteItem(obj, new CosmosItemRequestOptions()).getItem());
-    }
-
-    public <T> Result<T> updateOne(T obj) {
-        return tryCatch( () -> container.upsertItem(obj).getItem());
-    }
-
-    public <T> Result<T> insertOne(T obj) {
-        Log.info(() -> String.format("Inserting item: %s", obj.toString()));
-        return tryCatch(() -> container.createItem(obj).getItem());
-    }
-
-    public <T> Result<List<T>> query(Class<T> clazz, String queryStr) {
         return tryCatch(() -> {
-            var res = container.queryItems(queryStr, new CosmosQueryRequestOptions(), clazz);
+            CosmosContainer dynamicContainer = db.getContainer(container);
+            return dynamicContainer.readItem(id, new PartitionKey(id), clazz).getItem();
+        });
+    }
+
+    public <T> Result<T> deleteOne(T obj, String container) {
+        Log.info(() -> String.format("Deleting item: %s from container: %s", obj.toString(), container));
+        return tryCatch(() -> {
+            CosmosContainer dynamicContainer = db.getContainer(container);
+            dynamicContainer.deleteItem(obj, new CosmosItemRequestOptions());
+            return null;
+        });
+    }
+
+    public <T> Result<T> updateOne(T obj, String container) {
+        Log.info(() -> String.format("Updating item: %s", obj.toString()));
+        return tryCatch(() -> {
+            CosmosContainer dynamicContainer = db.getContainer(container);
+            return dynamicContainer.upsertItem(obj).getItem();
+        });
+    }
+
+    public <T> Result<T> insertOne(T obj, String container) {
+        Log.info(() -> String.format("Inserting item: %s", obj.toString()));
+        return tryCatch(() -> {
+            CosmosContainer dynamicContainer = db.getContainer(container);
+            return dynamicContainer.createItem(obj).getItem();
+        });
+    }
+
+    public <T> Result<List<T>> query(Class<T> clazz, String queryStr, String container) {
+        return tryCatch(() -> {
+            CosmosContainer dynamicContainer = db.getContainer(container);
+            var res = dynamicContainer.queryItems(queryStr, new CosmosQueryRequestOptions(), clazz);
             return res.stream().toList();
         });
     }
