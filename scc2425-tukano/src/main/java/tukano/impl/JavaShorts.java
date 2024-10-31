@@ -199,7 +199,7 @@ public class JavaShorts implements Shorts {
 
 	@Override
 	public Result<Void> follow(String userId1, String userId2, BooleanData isFollowing, String password) {
-		Log.info(() -> format("follow : userId1 = %s, userId2 = %s, isFollowing = %s, pwd = %s\n", userId1, userId2, isFollowing, password));
+		Log.info(() -> format("follow : userId1 = %s, userId2 = %s, isFollowing = %s, pwd = %s\n", userId1, userId2, isFollowing.getValue(), password));
 	
 		
 		return errorOrResult( okUser(userId1, password), user -> {
@@ -219,7 +219,7 @@ public class JavaShorts implements Shorts {
 
 	@Override
 	public Result<Void> like(String shortId, String userId, BooleanData isLiked, String password) {
-		Log.info(() -> format("like : shortId = %s, userId = %s, isLiked = %s, pwd = %s\n", shortId, userId, isLiked, password));
+		Log.info(() -> format("like : shortId = %s, userId = %s, isLiked = %s, pwd = %s\n", shortId, userId, isLiked.getValue(), password));
 
 		
 		return errorOrResult( getShort(shortId), shrt -> {
