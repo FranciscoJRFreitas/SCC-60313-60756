@@ -1,12 +1,12 @@
 package utils.db;
 
-import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.Jedis;
+
+import redis.clients.jedis.*;
 
 public class RedisCache {
 
         private static final String RedisHostname = "scc2425cache6031360756.redis.cache.windows.net";
-        private static final String RedisKey = "rqF3jQkUsTBs4umOTMcEv1Kv3N4NsQhLjAzCaMcXNj0=";
+        private static final String RedisKey = "LblCrwoy8clpo6Be4rGdIGtVobgYIWRrBAzCaHN2w8I=";
         private static final int REDIS_PORT = 6380;
         private static final int REDIS_TIMEOUT = 1000;
         private static final boolean Redis_USE_TLS = true;

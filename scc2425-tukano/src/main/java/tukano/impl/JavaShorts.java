@@ -33,7 +33,8 @@ public class JavaShorts implements Shorts {
 	private static final String SHORT_CACHE_PREFIX = "shorts:";
 	private static final String NUM_USERS_COUNTER = "NumUsers";
 	private static final String SHORTS_CONTAINER = "shorts";
-	
+
+	private static final String FOLLOWS_CONTAINER = "follows";
 	private static Shorts instance;
 	
 	synchronized public static Shorts getInstance() {
@@ -49,9 +50,13 @@ public class JavaShorts implements Shorts {
 		Log.info(() -> format("createShort : userId = %s, pwd = %s\n", userId, password));
 
 		return errorOrResult(okUser(userId, password), user -> {
+			Log.info("after okUser");
 			var shortId = format("%s+%s", userId, UUID.randomUUID());
 			var blobUrl = format("%s/%s/%s", TukanoRestServer.serverURI, Blobs.NAME, shortId);
 			var shrt = new Short(shortId, userId, blobUrl);
+			Log.info(() -> format("before set\n"));
+			shrt.setId(shrt.getShortId());
+			Log.info(() -> format("after set %s \n", shrt.getShortId()));
 			Result<Short> res = errorOrValue(CosmosDBLayer.getInstance().insertOne(shrt, SHORTS_CONTAINER), s -> s.copyWithLikes_And_Token(0));
 
 			// Cache short in Redis
@@ -125,7 +130,7 @@ public class JavaShorts implements Shorts {
 		});
 	}*/
 
-	@Override
+	/*@Override
 	public Result<Void> deleteShort(String shortId, String password) {
 		Log.info(() -> format("deleteShort : shortId = %s, pwd = %s\n", shortId, password));
 
@@ -136,6 +141,7 @@ public class JavaShorts implements Shorts {
 
 					// Delete from Hibernate
 					hibernate.remove(shrt);
+
 					var query = format("DELETE FROM Likes l WHERE l.shortId = '%s'", shortId);
 					hibernate.createNativeQuery(query, Likes.class).executeUpdate();
 
@@ -156,7 +162,32 @@ public class JavaShorts implements Shorts {
 			});
 		});
 	}
+*/
 
+	@Override
+	public Result<Void> deleteShort(String shortId, String password) {
+		Log.info(() -> format("deleteShort : shortId = %s, pwd = %s\n", shortId, password));
+
+		return errorOrResult(getShort(shortId), shrt -> {
+
+			return errorOrResult(okUser(shrt.getOwnerId(), password), user -> {
+
+				// Delete blob from JavaBlobs
+				//JavaBlobs.getInstance().delete(shrt.getBlobUrl(), Token.get());
+
+				// Delete from Redis cache
+				try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+					var key = SHORT_CACHE_PREFIX + shortId;
+					jedis.del(key);  // Delete from Redis
+				}
+
+				// Delete from CosmosDB
+				CosmosDBLayer.getInstance().deleteOne(shrt, SHORTS_CONTAINER);
+
+				return Result.ok();
+			});
+		});
+	}
 
 	@Override
 	public Result<List<String>> getShorts(String userId) {
@@ -173,7 +204,8 @@ public class JavaShorts implements Shorts {
 		
 		return errorOrResult( okUser(userId1, password), user -> {
 			var f = new Following(userId1, userId2);
-			return errorOrVoid( okUser( userId2), isFollowing ? DB.insertOne( f ) : DB.deleteOne( f ));	
+			f.setId();
+			return errorOrVoid( okUser( userId2), isFollowing ? CosmosDBLayer.getInstance().insertOne( f, FOLLOWS_CONTAINER ) : CosmosDBLayer.getInstance().deleteOne( f, FOLLOWS_CONTAINER ));
 		});			
 	}
 

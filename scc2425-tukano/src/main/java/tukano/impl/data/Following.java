@@ -14,14 +14,24 @@ public class Following{
 	@Id 
 	String followee;
 
+	String id;
+
 	Following() {}
 
 	public Following(String follower, String followee) {
 		super();
 		this.follower = follower;
 		this.followee = followee;
+		this.id = follower + "+" + followee;
 	}
 
+	public String getId() {
+		return id;
+	}
+
+	public void setId() {
+		this.id = follower + "+" + followee;
+	}
 	public String getFollower() {
 		return follower;
 	}

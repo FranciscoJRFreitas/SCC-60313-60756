@@ -108,10 +108,13 @@ public class JavaUsers implements Users {
 	}
 
 	private Result<User> validatedUserOrError( Result<User> res, String pwd ) {
-		if( res.isOK())
+		Log.info(() -> String.format("Trying to validate user: %s   with password: %s\n", res.value().getPwd(), pwd));
+		if( res.isOK()) {
+			Log.info("Trying to validate user" + res.value().getPwd() + " with encrypted password: " + Hash.sha256(pwd));
 			return res.value().getPwd().equals(Hash.sha256(pwd)) ? res : error(FORBIDDEN);
-		else
+		}else {
 			return res;
+		}
 	}
 	
 	private boolean badUserInfo(User user) {
