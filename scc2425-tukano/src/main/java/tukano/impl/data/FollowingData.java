@@ -5,16 +5,16 @@ public class FollowingData {
 
     public FollowingData() {}
 
-    public FollowingData(boolean value) {
-        this.isFollowing = value;
+    public FollowingData(boolean isFollowing) {
+        this.isFollowing = isFollowing;
     }
 
-    public boolean getValue() {
+    public boolean getIsFollowing() {
         return isFollowing;
     }
 
-    public void setValue(boolean value) {
-        this.isFollowing = value;
+    public void setValue(boolean isFollowing) {
+        this.isFollowing = isFollowing;
     }
 
 }

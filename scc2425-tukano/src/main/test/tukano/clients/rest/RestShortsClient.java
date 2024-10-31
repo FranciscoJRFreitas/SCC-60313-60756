@@ -151,7 +151,7 @@ public class RestShortsClient extends RestClient implements Shorts{
 
 	@Override
 	public Result<Void> follow(String userId1, String userId2, FollowingData isFollowing, String password) {
-		return super.reTry( () -> _follow(userId1, userId2, isFollowing.getValue(), password));
+		return super.reTry( () -> _follow(userId1, userId2, isFollowing.getIsFollowing(), password));
 	}
 
 	@Override
@@ -161,7 +161,7 @@ public class RestShortsClient extends RestClient implements Shorts{
 
 	@Override
 	public Result<Void> like(String shortId, String userId, LikesData isLiked, String password) {
-		return super.reTry( () -> _like(shortId, userId, isLiked.getValue(), password));
+		return super.reTry( () -> _like(shortId, userId, isLiked.getIsLiked(), password));
 	}
 
 	@Override

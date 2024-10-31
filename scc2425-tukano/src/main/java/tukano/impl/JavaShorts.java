@@ -202,13 +202,13 @@ public class JavaShorts implements Shorts {
 
 	@Override
 	public Result<Void> follow(String userId1, String userId2, FollowingData isFollowing, String password) {
-		Log.info(() -> format("follow : userId1 = %s, userId2 = %s, isFollowing = %s, pwd = %s\n", userId1, userId2, isFollowing.getValue(), password));
+		Log.info(() -> format("follow : userId1 = %s, userId2 = %s, isFollowing = %s, pwd = %s\n", userId1, userId2, isFollowing.getIsFollowing(), password));
 	
 		
 		return errorOrResult( okUser(userId1, password), user -> {
 			var f = new Following(userId1, userId2);
 			f.setId();
-			return errorOrVoid( okUser( userId2), isFollowing.getValue() ? CosmosDBLayer.getInstance().insertOne( f, FOLLOWS_CONTAINER ) : CosmosDBLayer.getInstance().deleteOne( f, FOLLOWS_CONTAINER ));
+			return errorOrVoid( okUser( userId2), isFollowing.getIsFollowing() ? CosmosDBLayer.getInstance().insertOne( f, FOLLOWS_CONTAINER ) : CosmosDBLayer.getInstance().deleteOne( f, FOLLOWS_CONTAINER ));
 		});
 	}
 
@@ -222,12 +222,12 @@ public class JavaShorts implements Shorts {
 
 	@Override
 	public Result<Void> like(String shortId, String userId, LikesData isLiked, String password) {
-		Log.info(() -> format("like : shortId = %s, userId = %s, isLiked = %s, pwd = %s\n", shortId, userId, isLiked.getValue(), password));
+		Log.info(() -> format("like : shortId = %s, userId = %s, isLiked = %s, pwd = %s\n", shortId, userId, isLiked.getIsLiked(), password));
 
 		
 		return errorOrResult( getShort(shortId), shrt -> {
 			var l = new Likes(userId, shortId, shrt.getOwnerId());
-			return errorOrVoid( okUser( userId, password), isLiked.getValue() ? DB.insertOne( l ) : DB.deleteOne( l ));
+			return errorOrVoid( okUser( userId, password), isLiked.getIsLiked() ? DB.insertOne( l ) : DB.deleteOne( l ));
 		});
 	}
 

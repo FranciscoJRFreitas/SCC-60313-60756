@@ -5,16 +5,16 @@ public class LikesData {
 
     public LikesData() {}
 
-    public LikesData(boolean value) {
-        this.isLiked = value;
+    public LikesData(boolean isLiked) {
+        this.isLiked = isLiked;
     }
 
-    public boolean getValue() {
+    public boolean getIsLiked() {
         return isLiked;
     }
 
-    public void setValue(boolean value) {
-        this.isLiked = value;
+    public void setValue(boolean isLiked) {
+        this.isLiked = isLiked;
     }
 
 }
