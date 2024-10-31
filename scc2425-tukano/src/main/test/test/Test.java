@@ -73,6 +73,8 @@ public class Test {
 		show(shorts.like(s2id, "liskov", true, "54321"));
 		show(shorts.like(s2id, "liskov", true, "54321"));*/
 		show(shorts.likes(s2id , "54321"));
+		*/
+
 		show(shorts.getFeed("liskov", "12345"));
 		show(shorts.getShort( s2id ));
 		
