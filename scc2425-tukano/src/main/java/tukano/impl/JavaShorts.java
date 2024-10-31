@@ -7,7 +7,6 @@ import static tukano.api.Result.errorOrValue;
 import static tukano.api.Result.errorOrVoid;
 import static tukano.api.Result.ok;
 import static tukano.api.Result.ErrorCode.FORBIDDEN;
-import static utils.db.DB.getOne;
 
 import java.util.List;
 import java.util.UUID;
@@ -20,6 +19,7 @@ import tukano.api.Short;
 import tukano.api.Shorts;
 import tukano.api.User;
 import tukano.impl.data.Following;
+import tukano.impl.data.BooleanData;
 import tukano.impl.data.Likes;
 import tukano.impl.rest.TukanoRestServer;
 import utils.JSON;
@@ -198,14 +198,14 @@ public class JavaShorts implements Shorts {
 	}
 
 	@Override
-	public Result<Void> follow(String userId1, String userId2, boolean isFollowing, String password) {
+	public Result<Void> follow(String userId1, String userId2, BooleanData isFollowing, String password) {
 		Log.info(() -> format("follow : userId1 = %s, userId2 = %s, isFollowing = %s, pwd = %s\n", userId1, userId2, isFollowing, password));
 	
 		
 		return errorOrResult( okUser(userId1, password), user -> {
 			var f = new Following(userId1, userId2);
 			f.setId();
-			return errorOrVoid( okUser( userId2), isFollowing ? CosmosDBLayer.getInstance().insertOne( f, FOLLOWS_CONTAINER ) : CosmosDBLayer.getInstance().deleteOne( f, FOLLOWS_CONTAINER ));
+			return errorOrVoid( okUser( userId2), isFollowing.getValue() ? CosmosDBLayer.getInstance().insertOne( f, FOLLOWS_CONTAINER ) : CosmosDBLayer.getInstance().deleteOne( f, FOLLOWS_CONTAINER ));
 		});			
 	}
 
@@ -218,13 +218,13 @@ public class JavaShorts implements Shorts {
 	}
 
 	@Override
-	public Result<Void> like(String shortId, String userId, boolean isLiked, String password) {
+	public Result<Void> like(String shortId, String userId, BooleanData isLiked, String password) {
 		Log.info(() -> format("like : shortId = %s, userId = %s, isLiked = %s, pwd = %s\n", shortId, userId, isLiked, password));
 
 		
 		return errorOrResult( getShort(shortId), shrt -> {
 			var l = new Likes(userId, shortId, shrt.getOwnerId());
-			return errorOrVoid( okUser( userId, password), isLiked ? DB.insertOne( l ) : DB.deleteOne( l ));	
+			return errorOrVoid( okUser( userId, password), isLiked.getValue() ? DB.insertOne( l ) : DB.deleteOne( l ));
 		});
 	}
 

@@ -1,5 +1,7 @@
 package tukano.api;
 
+import tukano.impl.data.BooleanData;
+
 import java.util.List;
 
 /**
@@ -72,7 +74,7 @@ public interface Shorts {
 	 * 	NOT_FOUND if any of the users does not exist
 	 *  FORBIDDEN if the password is incorrect
 	 */
-	Result<Void> follow(String userId1, String userId2, boolean isFollowing, String password);	
+	Result<Void> follow(String userId1, String userId2, BooleanData isFollowing, String password);
 
 	/**
 	 * Retrieves the lost of users following a given user
@@ -95,7 +97,7 @@ public interface Shorts {
 	 *  FORBIDDEN if the password of the user is incorrect
 	 *  BAD_REQUEST, otherwise
 	 */
-	Result<Void> like(String shortId, String userId, boolean isLiked, String password);
+	Result<Void> like(String shortId, String userId, BooleanData isLiked, String password);
 	
 
 	/**

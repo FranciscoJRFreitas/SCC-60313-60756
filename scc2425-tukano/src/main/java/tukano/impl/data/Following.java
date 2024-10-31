@@ -16,7 +16,7 @@ public class Following{
 
 	String id;
 
-	Following() {}
+	public Following() {}
 
 	public Following(String follower, String followee) {
 		super();
