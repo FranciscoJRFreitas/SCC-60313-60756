@@ -7,6 +7,7 @@ import tukano.api.Short;
 import tukano.api.Shorts;
 import tukano.api.rest.RestShorts;
 import tukano.impl.JavaShorts;
+import tukano.impl.data.BooleanData;
 
 @Singleton
 public class RestShortsResource extends RestResource implements RestShorts {
@@ -33,7 +34,7 @@ public class RestShortsResource extends RestResource implements RestShorts {
 	}
 
 	@Override
-	public void follow(String userId1, String userId2, boolean isFollowing, String password) {
+	public void follow(String userId1, String userId2, BooleanData isFollowing, String password) {
 		super.resultOrThrow( impl.follow(userId1, userId2, isFollowing, password));
 	}
 
@@ -43,7 +44,7 @@ public class RestShortsResource extends RestResource implements RestShorts {
 	}
 
 	@Override
-	public void like(String shortId, String userId, boolean isLiked, String password) {
+	public void like(String shortId, String userId, BooleanData isLiked, String password) {
 		super.resultOrThrow( impl.like(shortId, userId, isLiked, password));
 	}
 
