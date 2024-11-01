@@ -8,9 +8,12 @@ import static tukano.api.Result.errorOrVoid;
 import static tukano.api.Result.ok;
 import static tukano.api.Result.ErrorCode.FORBIDDEN;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
+
 import redis.clients.jedis.*;
 
 import tukano.api.Blobs;
@@ -278,16 +281,35 @@ public class JavaShorts implements Shorts {
 	public Result<List<String>> getFeed(String userId, String password) {
 		Log.info(() -> format("getFeed : userId = %s, pwd = %s\n", userId, password));
 
-		final var QUERY_FMT = """
-				SELECT s.shortId, s.timestamp FROM Short s WHERE	s.ownerId = '%s'				
-				UNION			
-				SELECT s.shortId, s.timestamp FROM Short s, Following f 
-					WHERE 
-						f.followee = s.ownerId AND f.follower = '%s' 
-				ORDER BY s.timestamp DESC""";
+		final var USER_OWN_SHORTS_QUERY = "SELECT * FROM shorts s WHERE s.ownerId = '%s'";
+		Result<List<Short>> resOwnShorts = CosmosDBLayer.getInstance().query(Short.class, USER_OWN_SHORTS_QUERY, SHORTS_CONTAINER);
+		final var FOLLOWING_SHORTS_QUERY = "SELECT * FROM shorts s, follows f WHERE f.followee = s.ownerId AND f.follower = '%s'";
+		Result<List<Short>> resFollowShorts = CosmosDBLayer.getInstance().query(Short.class, FOLLOWING_SHORTS_QUERY, SHORTS_CONTAINER);
 
-		return errorOrValue( okUser( userId, password), CosmosDBLayer.getInstance().query(String.class, format(QUERY_FMT, userId, userId), SHORTS_CONTAINER));
+
+		if (resOwnShorts.isOK() && resFollowShorts.isOK()) {
+			List<String> combinedResults = Stream.concat(
+							resOwnShorts.value().stream(),
+							resFollowShorts.value().stream()
+					)
+					.sorted(Comparator.comparing(Short::getTimestamp).reversed())
+					.map(shortObject -> shortObject.getShortId())
+					.toList();
+
+
+			return Result.ok(combinedResults);
+		} else {
+			if(!resOwnShorts.isOK()){
+				return Result.error(resOwnShorts.error());
+			}
+			return Result.error(resFollowShorts.error());
+
+		}
+
+
 	}
+
+
 		
 	protected Result<User> okUser( String userId, String pwd) {
 		return JavaUsers.getInstance().getUser(userId, pwd);
