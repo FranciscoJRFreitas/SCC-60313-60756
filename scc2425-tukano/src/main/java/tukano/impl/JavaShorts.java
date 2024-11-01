@@ -197,13 +197,30 @@ public class JavaShorts implements Shorts {
 	public Result<List<String>> getShorts(String userId) {
 		Log.info(() -> format("getShorts : userId = %s\n", userId));
 
-		var query = format("SELECT s.shortId FROM Short s WHERE s.ownerId = '%s'", userId);
-		return errorOrValue( okUser(userId), CosmosDBLayer.getInstance().query(String.class, query, SHORTS_CONTAINER));
+
+		String query = format("SELECT * FROM shorts s WHERE s.ownerId = '%s'", userId);
+
+		Result<List<Short>> result = CosmosDBLayer.getInstance().query(Short.class, query, SHORTS_CONTAINER);
+
+		if (result.isOK()) {
+			List<String> idShorts = result.value()
+					.stream()
+					.map(shortObject -> shortObject.getShortId())
+					.toList();
+
+			return Result.ok(idShorts);
+		} else {
+			return Result.error(result.error());
+		}
+
+
+		//return errorOrValue( okUser(userId), result.value());
+
 	}
 
 	@Override
 	public Result<Void> follow(String userId1, String userId2, FollowingData isFollowing, String password) {
-		Log.info(() -> format("follow : userId1 = %s, userId2 = %s, isFollowing = %s, pwd = %s\n", userId1, userId2, isFollowing.getIsFollowing(), password));
+		Log.info(() -> format("follow : userId1 = %s, userId2 = %s, isFollowing = @%s, pwd = %s\n", userId1, userId2, isFollowing.getIsFollowing(), password));
 	
 		
 		return errorOrResult( okUser(userId1, password), user -> {
@@ -217,8 +234,10 @@ public class JavaShorts implements Shorts {
 	public Result<List<String>> followers(String userId, String password) {
 		Log.info(() -> format("followers : userId = %s, pwd = %s\n", userId, password));
 
-		var query = format("SELECT f.follower FROM Following f WHERE f.followee = '%s'", userId);		
-		return errorOrValue( okUser(userId, password), DB.sql(query, String.class));
+		String query = format("SELECT f.follower FROM follows f WHERE f.followee = '%s'", userId);
+		Result<List<String>> result = CosmosDBLayer.getInstance().query(String.class, query, FOLLOWS_CONTAINER);
+
+		return errorOrValue( okUser(userId, password), result.value());
 	}
 
 	@Override
