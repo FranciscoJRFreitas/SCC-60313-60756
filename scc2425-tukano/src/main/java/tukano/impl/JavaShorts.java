@@ -197,7 +197,6 @@ public class JavaShorts implements Shorts {
 	public Result<List<String>> getShorts(String userId) {
 		Log.info(() -> format("getShorts : userId = %s\n", userId));
 
-
 		String query = format("SELECT * FROM shorts s WHERE s.ownerId = '%s'", userId);
 
 		Result<List<Short>> result = CosmosDBLayer.getInstance().query(Short.class, query, SHORTS_CONTAINER);
@@ -234,10 +233,21 @@ public class JavaShorts implements Shorts {
 	public Result<List<String>> followers(String userId, String password) {
 		Log.info(() -> format("followers : userId = %s, pwd = %s\n", userId, password));
 
-		String query = format("SELECT f.follower FROM follows f WHERE f.followee = '%s'", userId);
-		Result<List<String>> result = CosmosDBLayer.getInstance().query(String.class, query, FOLLOWS_CONTAINER);
+		String query = format("SELECT * FROM follows f WHERE f.followee = '%s'", userId);
+		Result<List<Following>> result = CosmosDBLayer.getInstance().query(Following.class, query, FOLLOWS_CONTAINER);
 
-		return errorOrValue( okUser(userId, password), result.value());
+		if (result.isOK()) {
+			List<String> followers = result.value()
+					.stream()
+					.map(followingObject -> followingObject.getFollower())
+					.toList();
+
+			return Result.ok(followers);
+		} else {
+			return Result.error(result.error());
+		}
+
+		//return errorOrValue( okUser(userId, password), result.value());
 	}
 
 	@Override
