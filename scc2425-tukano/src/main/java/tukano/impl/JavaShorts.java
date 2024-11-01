@@ -36,6 +36,7 @@ public class JavaShorts implements Shorts {
 	private static final String SHORTS_CONTAINER = "shorts";
 
 	private static final String FOLLOWS_CONTAINER = "follows";
+	private static final String LIKES_CONTAINER = "likes";
 	private static Shorts instance;
 	
 	synchronized public static Shorts getInstance() {
@@ -197,7 +198,7 @@ public class JavaShorts implements Shorts {
 		Log.info(() -> format("getShorts : userId = %s\n", userId));
 
 		var query = format("SELECT s.shortId FROM Short s WHERE s.ownerId = '%s'", userId);
-		return errorOrValue( okUser(userId), DB.sql( query, String.class));
+		return errorOrValue( okUser(userId), CosmosDBLayer.getInstance().query(String.class, query, SHORTS_CONTAINER));
 	}
 
 	@Override
@@ -208,7 +209,7 @@ public class JavaShorts implements Shorts {
 		return errorOrResult( okUser(userId1, password), user -> {
 			var f = new Following(userId1, userId2);
 			f.setId();
-			return errorOrVoid( okUser( userId2), isFollowing.getIsFollowing() ? CosmosDBLayer.getInstance().insertOne( f, FOLLOWS_CONTAINER ) : CosmosDBLayer.getInstance().deleteOne( f, FOLLOWS_CONTAINER ));
+			return errorOrVoid( okUser( userId2), !isFollowing.getIsFollowing() ? CosmosDBLayer.getInstance().insertOne( f, FOLLOWS_CONTAINER ) : CosmosDBLayer.getInstance().deleteOne( f, FOLLOWS_CONTAINER ));
 		});
 	}
 
@@ -227,7 +228,7 @@ public class JavaShorts implements Shorts {
 		
 		return errorOrResult( getShort(shortId), shrt -> {
 			var l = new Likes(userId, shortId, shrt.getOwnerId());
-			return errorOrVoid( okUser( userId, password), isLiked.getIsLiked() ? DB.insertOne( l ) : DB.deleteOne( l ));
+			return errorOrVoid( okUser( userId, password), !isLiked.getIsLiked() ? CosmosDBLayer.getInstance().insertOne( l, LIKES_CONTAINER) : CosmosDBLayer.getInstance().deleteOne( l, LIKES_CONTAINER ));
 		});
 	}
 
@@ -239,7 +240,7 @@ public class JavaShorts implements Shorts {
 			
 			var query = format("SELECT l.userId FROM Likes l WHERE l.shortId = '%s'", shortId);					
 			
-			return errorOrValue( okUser( shrt.getOwnerId(), password ), DB.sql(query, String.class));
+			return errorOrValue( okUser( shrt.getOwnerId(), password ), CosmosDBLayer.getInstance().query(String.class, query, LIKES_CONTAINER));
 		});
 	}
 
@@ -256,7 +257,7 @@ public class JavaShorts implements Shorts {
 						f.followee = s.ownerId AND f.follower = '%s' 
 				ORDER BY s.timestamp DESC""";
 
-		return errorOrValue( okUser( userId, password), DB.sql( format(QUERY_FMT, userId, userId), String.class));		
+		return errorOrValue( okUser( userId, password), CosmosDBLayer.getInstance().query(String.class, format(QUERY_FMT, userId, userId), SHORTS_CONTAINER));
 	}
 		
 	protected Result<User> okUser( String userId, String pwd) {

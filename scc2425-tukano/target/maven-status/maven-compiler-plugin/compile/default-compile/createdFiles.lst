@@ -18,6 +18,7 @@ tukano\impl\JavaUsers.class
 tukano\impl\rest\TukanoRestApplication.class
 tukano\clients\rest\RestShortsClient$3.class
 tukano\impl\rest\TukanoRestServer.class
+tukano\impl\data\LikesData.class
 tukano\clients\rest\RestShortsClient.class
 utils\Hibernate.class
 tukano\impl\storage\BlobStorage.class
@@ -28,6 +29,7 @@ tukano\api\Blobs.class
 tukano\api\Result.class
 utils\Props.class
 tukano\impl\data\Following.class
+tukano\impl\data\FollowingData.class
 utils\Args.class
 utils\db\RedisCache.class
 utils\IP.class
