@@ -21,6 +21,8 @@ public class TukanoRestServer {
 	public static final int PORT = 8080;
 
 	public static String serverURI;
+
+	public static String blobURL = "https://sccproj.blob.core.windows.net/shorts";
 			
 	static {
 		System.setProperty("java.util.logging.SimpleFormatter.format", "%4$s: %5$s");
@@ -48,7 +50,7 @@ public class TukanoRestServer {
 	public static void main(String[] args) throws Exception {
 		Args.use(args);
 		
-		Token.setSecret( Args.valueOf("-secret", ""));
+		Token.setSecret( Args.valueOf("-secret", "6031360756"));
 		//Props.load( Args.valueOf("-props", "").split(","));
 		
 		new TukanoRestServer().start();

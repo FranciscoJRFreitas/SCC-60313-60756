@@ -71,10 +71,16 @@ public class JavaShorts implements Shorts {
 
 		return errorOrResult(okUser(userId, password), user -> {
 			var shortId = format("%s+%s", userId, UUID.randomUUID());
-			var blobUrl = format("%s/%s/%s", TukanoRestServer.serverURI, Blobs.NAME, shortId);
+			var blobUrl = format("%s/%s/%s", "https://scc-backend-smd-60313-60756-test.azurewebsites.net/rest", Blobs.NAME, shortId);
 			var shrt = new Short(shortId, userId, blobUrl);
 			shrt.setId(shrt.getShortId());
 			Result<Short> res = errorOrValue(dbLayer.insertOne(shrt, SHORTS_CONTAINER), s -> s.copyWithLikes_And_Token(0));
+
+			if(!res.isOK()){
+				return Result.error(res.error());
+			}
+
+			JavaBlobs.getInstance().upload(shortId, new byte[0], Token.get(blobUrl));
 
 			if (useCache) {
 				// Cache short in Redis

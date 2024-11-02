@@ -51,6 +51,7 @@ tukano\api\ErrorResult.class
 tukano\clients\rest\RestBlobsClient.class
 utils\TryCatch$ThrowableSupplier.class
 tukano\clients\rest\RestShortsClient$1.class
+utils\db\AzureBlobStorage.class
 utils\JSON.class
 tukano\clients\rest\RestShortsClient$4.class
 tukano\api\Short.class

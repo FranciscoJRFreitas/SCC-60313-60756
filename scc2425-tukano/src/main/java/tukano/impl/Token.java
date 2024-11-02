@@ -32,9 +32,9 @@ public class Token {
 			var bits = tokenStr.split(DELIMITER);
 			var timestamp = Long.valueOf(bits[0]);
 			var hmac = Hash.of(id, timestamp, secret);
-			var elapsed = Math.abs(System.currentTimeMillis() - timestamp);			
+			var elapsed = Math.abs(System.currentTimeMillis() - timestamp);
 			Log.info(String.format("hash ok:%s, elapsed %s ok: %s\n", hmac.equals(bits[1]), elapsed, elapsed < MAX_TOKEN_AGE));
-			return hmac.equals(bits[1]) && elapsed < MAX_TOKEN_AGE;			
+			return hmac.equals(bits[1]) && elapsed < MAX_TOKEN_AGE;
 		} catch( Exception x ) {
 			x.printStackTrace();
 			return false;
