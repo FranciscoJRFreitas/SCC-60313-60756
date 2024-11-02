@@ -37,7 +37,7 @@
                         </resources>
                     </deployment>
                     <resourceGroup>scc-backend-rg-smd-60313-60756</resourceGroup>
-                    <appName>scc-backend-smd-60313-60756</appName>
+                    <appName>scc-backend-smd-60313-60756-test</appName>
                 </configuration>
             </plugin>
 			<plugin>
@@ -124,6 +124,11 @@
 			<groupId>org.hsqldb</groupId>
 			<artifactId>hsqldb</artifactId>
 			<version>2.7.2</version>
+		</dependency>
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<version>42.7.3</version>
 		</dependency>
 		<dependency>
 			<groupId>org.hibernate</groupId>

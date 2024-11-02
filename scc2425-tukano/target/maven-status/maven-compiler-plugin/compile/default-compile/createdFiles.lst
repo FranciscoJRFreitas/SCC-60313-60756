@@ -13,12 +13,13 @@ tukano\impl\JavaShorts.class
 tukano\impl\JavaBlobs.class
 tukano\api\User.class
 tukano\api\rest\RestUsers.class
-utils\db\DB.class
 tukano\impl\JavaUsers.class
 tukano\impl\rest\TukanoRestApplication.class
 tukano\clients\rest\RestShortsClient$3.class
+utils\db\PostgreDBLayer.class
 tukano\impl\rest\TukanoRestServer.class
 tukano\impl\data\LikesData.class
+utils\db\DBLayer.class
 tukano\clients\rest\RestShortsClient.class
 utils\Hibernate.class
 tukano\impl\storage\BlobStorage.class

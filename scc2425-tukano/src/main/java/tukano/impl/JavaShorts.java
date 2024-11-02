@@ -25,8 +25,9 @@ import tukano.impl.data.LikesData;
 import tukano.impl.rest.TukanoRestServer;
 import utils.JSON;
 import utils.db.CosmosDBLayer;
+import utils.db.DBLayer;
+import utils.db.PostgreDBLayer;
 import utils.db.RedisCache;
-import utils.db.DB;
 
 public class JavaShorts implements Shorts {
 
@@ -38,6 +39,19 @@ public class JavaShorts implements Shorts {
 	private static final String FOLLOWS_CONTAINER = "follows";
 	private static final String LIKES_CONTAINER = "likes";
 	private static Shorts instance;
+
+	private static final DBLayer dbLayer;
+	private static final boolean useCache;
+
+	static {
+		String dbType = "POSTGRE"; // "COSMOS" vs "POSTGRE" (could be env variable)
+		if ("POSTGRE".equalsIgnoreCase(dbType)) {
+			dbLayer = PostgreDBLayer.getInstance();
+		} else {
+			dbLayer = CosmosDBLayer.getInstance();
+		}
+		useCache = false;
+	}
 	
 	synchronized public static Shorts getInstance() {
 		if( instance == null )
@@ -52,23 +66,21 @@ public class JavaShorts implements Shorts {
 		Log.info(() -> format("createShort : userId = %s, pwd = %s\n", userId, password));
 
 		return errorOrResult(okUser(userId, password), user -> {
-			Log.info("after okUser");
 			var shortId = format("%s+%s", userId, UUID.randomUUID());
 			var blobUrl = format("%s/%s/%s", TukanoRestServer.serverURI, Blobs.NAME, shortId);
 			var shrt = new Short(shortId, userId, blobUrl);
-			Log.info(() -> format("before set\n"));
 			shrt.setId(shrt.getShortId());
-			Log.info(() -> format("after set %s \n", shrt.getShortId()));
-			Result<Short> res = errorOrValue(CosmosDBLayer.getInstance().insertOne(shrt, SHORTS_CONTAINER), s -> s.copyWithLikes_And_Token(0));
+			Result<Short> res = errorOrValue(dbLayer.insertOne(shrt, SHORTS_CONTAINER), s -> s.copyWithLikes_And_Token(0));
 
-			// Cache short in Redis
-			try (Jedis jedis = RedisCache.getCachePool().getResource()) {
-				var key = SHORT_CACHE_PREFIX + shortId;
-				var value = JSON.encode(shrt);
-				jedis.set(key, value);
-				jedis.expire(key, 259200); // 3-day expiration
+			if (useCache) {
+				// Cache short in Redis
+				try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+					var key = SHORT_CACHE_PREFIX + shortId;
+					var value = JSON.encode(shrt);
+					jedis.set(key, value);
+					jedis.expire(key, 259200); // 3-day expiration
+				}
 			}
-
 			return res;
 		});
 	}
@@ -90,105 +102,52 @@ public class JavaShorts implements Shorts {
 		if (shortId == null)
 			return error(Result.ErrorCode.BAD_REQUEST);
 
-		// Retrieve from Redis if available
-		try (Jedis jedis = RedisCache.getCachePool().getResource()) {
-			var key = SHORT_CACHE_PREFIX + shortId;
-			String cachedValue = jedis.get(key);
-			if (cachedValue != null) {
-				Short cachedShort = JSON.decode(cachedValue, Short.class);
-				return ok(cachedShort);
+		if (useCache) {
+			// Retrieve from Redis if available
+			try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+				var key = SHORT_CACHE_PREFIX + shortId;
+				String cachedValue = jedis.get(key);
+				if (cachedValue != null) {
+					Short cachedShort = JSON.decode(cachedValue, Short.class);
+					return ok(cachedShort);
+				}
 			}
 		}
 
 		// Fallback to DB retrieval if not cached
-		return errorOrValue(CosmosDBLayer.getInstance().getOne(shortId, Short.class, SHORTS_CONTAINER), shrt -> {
-			try (Jedis jedis = RedisCache.getCachePool().getResource()) {
-				var key = SHORT_CACHE_PREFIX + shortId;
-				jedis.set(key, JSON.encode(shrt));
-				jedis.expire(key, 259200); // Cache for 3 days
+		return errorOrValue(dbLayer.getOne(shortId, Short.class, SHORTS_CONTAINER), shrt -> {
+			if (useCache) {
+				try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+					var key = SHORT_CACHE_PREFIX + shortId;
+					jedis.set(key, JSON.encode(shrt));
+					jedis.expire(key, 259200); // Cache for 3 days
+				}
 			}
 			return shrt;
 		});
 	}
-
-
-	/*@Override
-	public Result<Void> deleteShort(String shortId, String password) {
-		Log.info(() -> format("deleteShort : shortId = %s, pwd = %s\n", shortId, password));
-
-		return errorOrResult( getShort(shortId), shrt -> {
-
-			return errorOrResult( okUser( shrt.getOwnerId(), password), user -> {
-				return DB.transaction( hibernate -> {
-
-					hibernate.remove( shrt);
-
-					var query = format("DELETE Likes l WHERE l.shortId = '%s'", shortId);
-					hibernate.createNativeQuery( query, Likes.class).executeUpdate();
-
-					JavaBlobs.getInstance().delete(shrt.getBlobUrl(), Token.get() );
-				});
-			});
-		});
-	}*/
-
-	/*@Override
-	public Result<Void> deleteShort(String shortId, String password) {
-		Log.info(() -> format("deleteShort : shortId = %s, pwd = %s\n", shortId, password));
-
-		return errorOrResult(getShort(shortId), shrt -> {
-
-			return errorOrResult(okUser(shrt.getOwnerId(), password), user -> {
-				return DB.transaction(hibernate -> {
-
-					// Delete from Hibernate
-					hibernate.remove(shrt);
-
-					var query = format("DELETE FROM Likes l WHERE l.shortId = '%s'", shortId);
-					hibernate.createNativeQuery(query, Likes.class).executeUpdate();
-
-					// Delete blob from JavaBlobs
-					JavaBlobs.getInstance().delete(shrt.getBlobUrl(), Token.get());
-
-					// Delete from Redis cache
-					try (Jedis jedis = RedisCache.getCachePool().getResource()) {
-						var key = SHORT_CACHE_PREFIX + shortId;
-						jedis.del(key);  // Delete from Redis
-					}
-
-					// Delete from CosmosDB
-					CosmosDBLayer.getInstance().deleteOne(shrt, SHORTS_CONTAINER);
-
-					return Result.ok();
-				});
-			});
-		});
-	}
-*/
 
 	@Override
 	public Result<Void> deleteShort(String shortId, String password) {
 		Log.info(() -> format("deleteShort : shortId = %s, pwd = %s\n", shortId, password));
 
 		return errorOrResult(getShort(shortId), shrt -> {
-
-			return errorOrResult(okUser(shrt.getOwnerId(), password), user -> {
+			return errorOrVoid(okUser(shrt.getOwnerId(), password), user -> {
 
 				// Delete blob from JavaBlobs
 				//JavaBlobs.getInstance().delete(shrt.getBlobUrl(), Token.get());
 
-				// Delete from Redis cache
-				try (Jedis jedis = RedisCache.getCachePool().getResource()) {
-					var key = SHORT_CACHE_PREFIX + shortId;
-					jedis.del(key);  // Delete from Redis
+				// Delete from Redis cache if enabled
+				if (useCache) {
+					try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+						var key = SHORT_CACHE_PREFIX + shortId;
+						jedis.del(key); // Delete from Redis
+					}
 				}
-
-				// Delete from CosmosDB
-				CosmosDBLayer.getInstance().deleteOne(shrt, SHORTS_CONTAINER);
-
-				return Result.ok();
+				// Delete from DB
+				return dbLayer.deleteOne(shrt, SHORTS_CONTAINER);
 			});
-		});
+        });
 	}
 
 	//TODO |||||||||||||||||||||||||||||||||||||||||||||||||| Fica a faltar blobs e implementar e testar este métodos abaixo |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
@@ -199,33 +158,31 @@ public class JavaShorts implements Shorts {
 
 		String query = format("SELECT * FROM shorts s WHERE s.ownerId = '%s'", userId);
 
-		Result<List<Short>> result = CosmosDBLayer.getInstance().query(Short.class, query, SHORTS_CONTAINER);
+		Result<List<Short>> result = dbLayer.query(Short.class, query, SHORTS_CONTAINER);
 
 		if (result.isOK()) {
 			List<String> idShorts = result.value()
 					.stream()
-					.map(shortObject -> shortObject.getShortId())
+					.map(Short::getShortId)
 					.toList();
+
+			if(idShorts.isEmpty())
+				return error(Result.ErrorCode.NOT_FOUND);
 
 			return Result.ok(idShorts);
 		} else {
 			return Result.error(result.error());
 		}
-
-
-		//return errorOrValue( okUser(userId), result.value());
-
 	}
 
 	@Override
 	public Result<Void> follow(String userId1, String userId2, FollowingData isFollowing, String password) {
 		Log.info(() -> format("follow : userId1 = %s, userId2 = %s, isFollowing = @%s, pwd = %s\n", userId1, userId2, isFollowing.getIsFollowing(), password));
-	
-		
+
 		return errorOrResult( okUser(userId1, password), user -> {
 			var f = new Following(userId1, userId2);
 			f.setId();
-			return errorOrVoid( okUser( userId2), !isFollowing.getIsFollowing() ? CosmosDBLayer.getInstance().insertOne( f, FOLLOWS_CONTAINER ) : CosmosDBLayer.getInstance().deleteOne( f, FOLLOWS_CONTAINER ));
+			return errorOrVoid( okUser( userId2), !isFollowing.getIsFollowing() ? dbLayer.insertOne( f, FOLLOWS_CONTAINER ) : dbLayer.deleteOne( f, FOLLOWS_CONTAINER ));
 		});
 	}
 
@@ -234,12 +191,12 @@ public class JavaShorts implements Shorts {
 		Log.info(() -> format("followers : userId = %s, pwd = %s\n", userId, password));
 
 		String query = format("SELECT * FROM follows f WHERE f.followee = '%s'", userId);
-		Result<List<Following>> result = CosmosDBLayer.getInstance().query(Following.class, query, FOLLOWS_CONTAINER);
+		Result<List<Following>> result = dbLayer.query(Following.class, query, FOLLOWS_CONTAINER);
 
 		if (result.isOK()) {
 			List<String> followers = result.value()
 					.stream()
-					.map(followingObject -> followingObject.getFollower())
+					.map(Following::getFollower)
 					.toList();
 
 			return Result.ok(followers);
@@ -257,7 +214,7 @@ public class JavaShorts implements Shorts {
 		
 		return errorOrResult( getShort(shortId), shrt -> {
 			var l = new Likes(userId, shortId, shrt.getOwnerId());
-			return errorOrVoid( okUser( userId, password), !isLiked.getIsLiked() ? CosmosDBLayer.getInstance().insertOne( l, LIKES_CONTAINER) : CosmosDBLayer.getInstance().deleteOne( l, LIKES_CONTAINER ));
+			return errorOrVoid( okUser( userId, password), !isLiked.getIsLiked() ? dbLayer.insertOne( l, LIKES_CONTAINER) : dbLayer.deleteOne( l, LIKES_CONTAINER ));
 		});
 	}
 
@@ -267,63 +224,69 @@ public class JavaShorts implements Shorts {
 
 		return errorOrResult( getShort(shortId), shrt -> {
 			
-			var query = format("SELECT l.userId FROM Likes l WHERE l.shortId = '%s'", shortId);					
+			var query = format("SELECT l.userId FROM likes l WHERE l.shortId = '%s'", shortId);
 			
-			return errorOrValue( okUser( shrt.getOwnerId(), password ), CosmosDBLayer.getInstance().query(String.class, query, LIKES_CONTAINER));
+			return errorOrValue( okUser( shrt.getOwnerId(), password ), dbLayer.query(String.class, query, LIKES_CONTAINER));
 		});
 	}
 
-	//TODO REVER E TESTAR FEED
+
 	@Override
 	public Result<List<String>> getFeed(String userId, String password) {
 		Log.info(() -> format("getFeed : userId = %s, pwd = %s\n", userId, password));
 
 		final var QUERY_FMT = """
-				SELECT s.shortId, s.timestamp FROM Short s WHERE	s.ownerId = '%s'				
-				UNION			
-				SELECT s.shortId, s.timestamp FROM Short s, Following f 
-					WHERE 
-						f.followee = s.ownerId AND f.follower = '%s' 
-				ORDER BY s.timestamp DESC""";
+				SELECT shortId
+				FROM (
+				    SELECT s.shortId, s.timestamp
+				    FROM shorts s
+				    WHERE s.ownerId = '%s'
+				    UNION
+				    SELECT s.shortId, s.timestamp
+				    FROM shorts s
+				    JOIN follows f ON f.followee = s.ownerId
+				    WHERE f.follower = '%s'
+				) AS combined_shorts
+				ORDER BY timestamp DESC;
+				""";
 
-		return errorOrValue( okUser( userId, password), CosmosDBLayer.getInstance().query(String.class, format(QUERY_FMT, userId, userId), SHORTS_CONTAINER));
+		return errorOrValue( okUser( userId, password), dbLayer.query(String.class, format(QUERY_FMT, userId, userId), SHORTS_CONTAINER));
 	}
 		
+	//TODO REVER E TESTAR DELETE ALL
+	@Override
+	public Result<Void> deleteAllShorts(String userId, String password, String token) {
+//		Log.info(() -> format("deleteAllShorts : userId = %s, password = %s, token = %s\n", userId, password, token));
+//
+//		if( ! Token.isValid( token, userId ) )
+//			return error(FORBIDDEN);
+//
+//		return DB.transaction( (hibernate) -> {
+//
+//			//delete shorts
+//			var query1 = format("DELETE Short s WHERE s.ownerId = '%s'", userId);
+//			hibernate.createQuery(query1, Short.class).executeUpdate();
+//
+//			//delete follows
+//			var query2 = format("DELETE Following f WHERE f.follower = '%s' OR f.followee = '%s'", userId, userId);
+//			hibernate.createQuery(query2, Following.class).executeUpdate();
+//
+//			//delete likes
+//			var query3 = format("DELETE Likes l WHERE l.ownerId = '%s' OR l.userId = '%s'", userId, userId);
+//			hibernate.createQuery(query3, Likes.class).executeUpdate();
+//
+//		});
+		return error(Result.ErrorCode.NOT_IMPLEMENTED);
+	}
+
 	protected Result<User> okUser( String userId, String pwd) {
 		return JavaUsers.getInstance().getUser(userId, pwd);
 	}
-	
-	private Result<Void> okUser( String userId ) {
-		var res = okUser( userId, "");
-		if( res.error() == FORBIDDEN )
-			return ok();
-		else
-			return error( res.error() );
-	}
 
-	//TODO REVER E TESTAR FEED
-	@Override
-	public Result<Void> deleteAllShorts(String userId, String password, String token) {
-		Log.info(() -> format("deleteAllShorts : userId = %s, password = %s, token = %s\n", userId, password, token));
-
-		if( ! Token.isValid( token, userId ) )
-			return error(FORBIDDEN);
-		
-		return DB.transaction( (hibernate) -> {
-						
-			//delete shorts
-			var query1 = format("DELETE Short s WHERE s.ownerId = '%s'", userId);		
-			hibernate.createQuery(query1, Short.class).executeUpdate();
-			
-			//delete follows
-			var query2 = format("DELETE Following f WHERE f.follower = '%s' OR f.followee = '%s'", userId, userId);		
-			hibernate.createQuery(query2, Following.class).executeUpdate();
-			
-			//delete likes
-			var query3 = format("DELETE Likes l WHERE l.ownerId = '%s' OR l.userId = '%s'", userId, userId);		
-			hibernate.createQuery(query3, Likes.class).executeUpdate();
-			
-		});
+	private Result<Void> okUser(String userId) {
+		var res = okUser(userId, "");
+		if (res.error() == Result.ErrorCode.NOT_FOUND) return error(Result.ErrorCode.NOT_FOUND);
+		return res.error() == FORBIDDEN ? ok() : error(res.error());
 	}
 	
 }

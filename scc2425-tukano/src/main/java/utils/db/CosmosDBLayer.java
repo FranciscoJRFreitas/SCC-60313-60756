@@ -19,13 +19,13 @@ import tukano.api.Result.ErrorCode;
 import tukano.impl.rest.utils.CustomLoggingFilter;
 
 //Change the containers
-public class CosmosDBLayer {
-    private static final String CONNECTION_URL = "https://cosmosdb6031360756.documents.azure.com:443/";
-    //private static final String CONNECTION_URL = "https://cosmos6031360756proj.documents.azure.com:443/";
-    private static final String DB_KEY = "QIvPOerJ4SxHaPBGmU5aPe5GCdKGXLFNNhRTUgPnGzyF4ghC12jcSscIiySpJNqiQG1IzUpXSXX4ACDbWJd2fw==";
-    //private static final String DB_KEY = "0tGZcqORbS5b7BIkRsoOPy903AncoSx3rDwUIcIgs3tnAQBpe6lU1lFnHtolQgCrfI9bFLB6Ns7bACDbwL3niQ==";
-    private static final String DB_NAME = "cosmosdb6031360756";
-   // private static final String DB_NAME = "proj2425";
+public class CosmosDBLayer implements DBLayer {
+    //private static final String CONNECTION_URL = "https://cosmosdb6031360756.documents.azure.com:443/";
+    private static final String CONNECTION_URL = "https://cosmos6031360756proj.documents.azure.com:443/";
+    //private static final String DB_KEY = "QIvPOerJ4SxHaPBGmU5aPe5GCdKGXLFNNhRTUgPnGzyF4ghC12jcSscIiySpJNqiQG1IzUpXSXX4ACDbWJd2fw==";
+    private static final String DB_KEY = "0tGZcqORbS5b7BIkRsoOPy903AncoSx3rDwUIcIgs3tnAQBpe6lU1lFnHtolQgCrfI9bFLB6Ns7bACDbwL3niQ==";
+    //private static final String DB_NAME = "cosmosdb6031360756";
+    private static final String DB_NAME = "proj2425";
     private static Logger Log = Logger.getLogger(CosmosDBLayer.class.getName());
     private static CosmosDBLayer instance;
 
@@ -48,7 +48,7 @@ public class CosmosDBLayer {
 
     }
 
-    private CosmosClient client;
+    private final CosmosClient client;
     private CosmosDatabase db;
 
 
@@ -67,6 +67,7 @@ public class CosmosDBLayer {
         client.close();
     }
 
+    @Override
     public <T> Result<T> getOne(String id, Class<T> clazz, String container) {
         Log.info(() -> String.format("Getting item with id: %s", id));
         return tryCatch(() -> {
@@ -75,6 +76,7 @@ public class CosmosDBLayer {
         });
     }
 
+    @Override
     public <T> Result<T> deleteOne(T obj, String container) {
         Log.info(() -> String.format("Deleting item: %s from container: %s", obj.toString(), container));
         return tryCatch(() -> {
@@ -84,6 +86,7 @@ public class CosmosDBLayer {
         });
     }
 
+    @Override
     public <T> Result<T> updateOne(T obj, String container) {
         Log.info(() -> String.format("Updating item: %s", obj.toString()));
         return tryCatch(() -> {
@@ -92,6 +95,7 @@ public class CosmosDBLayer {
         });
     }
 
+    @Override
     public <T> Result<T> insertOne(T obj, String container) {
         Log.info(() -> String.format("Inserting item: %s", obj.toString()));
         return tryCatch(() -> {
@@ -100,6 +104,7 @@ public class CosmosDBLayer {
         });
     }
 
+    @Override
     public <T> Result<List<T>> query(Class<T> clazz, String queryStr, String container) {
         return tryCatch(() -> {
             CosmosContainer dynamicContainer = db.getContainer(container);
