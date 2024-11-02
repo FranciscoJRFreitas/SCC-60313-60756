@@ -13,6 +13,8 @@ public class Likes {
 	
 	@Id 
 	String shortId;
+
+	String id;
 	
 	public String getOwnerId() {
 		return ownerId;
@@ -30,6 +32,15 @@ public class Likes {
 		this.userId = userId;
 		this.shortId = shortId;
 		this.ownerId = ownerId;
+		this.id = userId + "+" + shortId;
+	}
+
+	public String getId() {
+		return id;
+	}
+
+	public void setId() {
+		this.id = userId + "+" + shortId;
 	}
 
 	public String getUserId() {

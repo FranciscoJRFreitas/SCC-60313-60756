@@ -10,4 +10,6 @@ public interface DBLayer {
     <T> Result<T> updateOne(T obj, String container);
     <T> Result<T> deleteOne(T obj, String container);
     <T> Result<List<T>> query(Class<T> clazz, String queryStr, String container);
+
+    Result<Void> executeUpdate(String queryStr, String container);
 }

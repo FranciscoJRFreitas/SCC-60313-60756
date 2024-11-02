@@ -1,6 +1,7 @@
 package utils.db;
 
 import java.util.List;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 
@@ -112,6 +113,39 @@ public class CosmosDBLayer implements DBLayer {
             return res.stream().toList();
         });
     }
+
+    public <T, R> Result<List<R>> queryAndMapResults(Class<T> clazz, String queryStr, String container, Function<T, R> mapper) {
+        return tryCatch(() -> {
+            CosmosContainer dynamicContainer = db.getContainer(container);
+            var queryResult = dynamicContainer.queryItems(queryStr, new CosmosQueryRequestOptions(), clazz);
+
+            // Map the query results using the mapper function and collect into a list
+            return queryResult.stream()
+                    .map(mapper)
+                    .toList();
+        });
+    }
+
+
+    @Override
+    public Result<Void> executeUpdate(String queryStr, String container) {
+        return tryCatch(() -> {
+            CosmosContainer dynamicContainer = db.getContainer(container);
+
+            var items = dynamicContainer.queryItems(queryStr, new CosmosQueryRequestOptions(), Object.class);
+
+            items.forEach(item -> {
+                try {
+                    dynamicContainer.deleteItem(item, new CosmosItemRequestOptions());
+                } catch (CosmosException ce) {
+                    Log.warning(() -> String.format("Failed to delete item: %s - CosmosException: %s", item, ce.getMessage()));
+                }
+            });
+
+            return null;
+        });
+    }
+
 
     <T> Result<T> tryCatch(Supplier<T> supplierFunc) {
         try {

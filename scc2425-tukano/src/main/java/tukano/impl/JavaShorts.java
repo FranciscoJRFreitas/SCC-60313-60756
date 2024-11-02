@@ -8,6 +8,7 @@ import static tukano.api.Result.errorOrVoid;
 import static tukano.api.Result.ok;
 import static tukano.api.Result.ErrorCode.FORBIDDEN;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -47,7 +48,7 @@ public class JavaShorts implements Shorts {
 	private static final boolean useCache;
 
 	static {
-		String dbType = "POSTGRE"; // "COSMOS" vs "POSTGRE" (could be env variable)
+		String dbType = "COSMOS"; // "COSMOS" vs "POSTGRE" (could be env variable)
 		if ("POSTGRE".equalsIgnoreCase(dbType)) {
 			dbLayer = PostgreDBLayer.getInstance();
 		} else {
@@ -153,30 +154,22 @@ public class JavaShorts implements Shorts {
         });
 	}
 
-	//TODO |||||||||||||||||||||||||||||||||||||||||||||||||| Fica a faltar blobs e implementar e testar este métodos abaixo |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-	//TODO REVER E TESTAR GETSHORTS
 	@Override
 	public Result<List<String>> getShorts(String userId) {
 		Log.info(() -> format("getShorts : userId = %s\n", userId));
 
-		String query = format("SELECT * FROM shorts s WHERE s.ownerId = '%s'", userId);
+		String cosmosQuery = format("SELECT * FROM %s s WHERE s.ownerId = '%s'", SHORTS_CONTAINER, userId);
+		String postgreQuery = format("SELECT s.shortId FROM %s s WHERE s.ownerId = '%s'", SHORTS_CONTAINER, userId);
 
-		Result<List<Short>> result = dbLayer.query(Short.class, query, SHORTS_CONTAINER);
+		Result<List<String>> result = dbLayer instanceof CosmosDBLayer
+				? ((CosmosDBLayer) dbLayer).queryAndMapResults(Short.class, cosmosQuery, SHORTS_CONTAINER, Short::getShortId)
+				: dbLayer.query(String.class, postgreQuery, SHORTS_CONTAINER);
 
-		if (result.isOK()) {
-			List<String> idShorts = result.value()
-					.stream()
-					.map(Short::getShortId)
-					.toList();
-
-			if(idShorts.isEmpty())
-				return error(Result.ErrorCode.NOT_FOUND);
-
-			return Result.ok(idShorts);
-		} else {
-			return Result.error(result.error());
-		}
+		return result.isOK() && result.value().isEmpty()
+				? error(Result.ErrorCode.NOT_FOUND)
+				: result;
 	}
+
 
 	@Override
 	public Result<Void> follow(String userId1, String userId2, FollowingData isFollowing, String password) {
@@ -193,30 +186,24 @@ public class JavaShorts implements Shorts {
 	public Result<List<String>> followers(String userId, String password) {
 		Log.info(() -> format("followers : userId = %s, pwd = %s\n", userId, password));
 
-		String query = format("SELECT * FROM follows f WHERE f.followee = '%s'", userId);
-		Result<List<Following>> result = dbLayer.query(Following.class, query, FOLLOWS_CONTAINER);
+		String cosmosQuery = format("SELECT * FROM %s f WHERE f.followee = '%s'", FOLLOWS_CONTAINER, userId);
+		String postgreQuery = format("SELECT f.follower FROM %s f WHERE f.followee = '%s'", FOLLOWS_CONTAINER, userId);
 
-		if (result.isOK()) {
-			List<String> followers = result.value()
-					.stream()
-					.map(Following::getFollower)
-					.toList();
-
-			return Result.ok(followers);
-		} else {
-			return Result.error(result.error());
-		}
-
-		//return errorOrValue( okUser(userId, password), result.value());
+		return errorOrValue(okUser(userId, password),
+				dbLayer instanceof CosmosDBLayer
+						? ((CosmosDBLayer) dbLayer).queryAndMapResults(Following.class, cosmosQuery, FOLLOWS_CONTAINER, Following::getFollower)
+						: dbLayer.query(String.class, postgreQuery, FOLLOWS_CONTAINER)
+		);
 	}
+
 
 	@Override
 	public Result<Void> like(String shortId, String userId, LikesData isLiked, String password) {
 		Log.info(() -> format("like : shortId = %s, userId = %s, isLiked = %s, pwd = %s\n", shortId, userId, isLiked.getIsLiked(), password));
 
-		
 		return errorOrResult( getShort(shortId), shrt -> {
 			var l = new Likes(userId, shortId, shrt.getOwnerId());
+			l.setId();
 			return errorOrVoid( okUser( userId, password), !isLiked.getIsLiked() ? dbLayer.insertOne( l, LIKES_CONTAINER) : dbLayer.deleteOne( l, LIKES_CONTAINER ));
 		});
 	}
@@ -225,11 +212,14 @@ public class JavaShorts implements Shorts {
 	public Result<List<String>> likes(String shortId, String password) {
 		Log.info(() -> format("likes : shortId = %s, pwd = %s\n", shortId, password));
 
-		return errorOrResult( getShort(shortId), shrt -> {
-			
-			var query = format("SELECT l.userId FROM likes l WHERE l.shortId = '%s'", shortId);
-			
-			return errorOrValue( okUser( shrt.getOwnerId(), password ), dbLayer.query(String.class, query, LIKES_CONTAINER));
+		return errorOrResult(getShort(shortId), shrt -> {
+
+			String cosmosQuery = format("SELECT %s.userId FROM %s WHERE %s.shortId = '%s'",LIKES_CONTAINER, LIKES_CONTAINER, LIKES_CONTAINER, shortId);
+			String postgreQuery = format("SELECT userId FROM %s WHERE shortId = '%s'", LIKES_CONTAINER, shortId);
+
+			return errorOrValue(okUser(shrt.getOwnerId(), password), dbLayer instanceof CosmosDBLayer ?
+					((CosmosDBLayer) dbLayer).queryAndMapResults(Likes.class, cosmosQuery, LIKES_CONTAINER, Likes::getUserId)
+					: dbLayer.query(String.class, postgreQuery, LIKES_CONTAINER));
 		});
 	}
 
@@ -238,48 +228,113 @@ public class JavaShorts implements Shorts {
 	public Result<List<String>> getFeed(String userId, String password) {
 		Log.info(() -> format("getFeed : userId = %s, pwd = %s\n", userId, password));
 
-		final var QUERY_FMT = """
-				SELECT shortId
-				FROM (
-				    SELECT s.shortId, s.timestamp
-				    FROM shorts s
-				    WHERE s.ownerId = '%s'
-				    UNION
-				    SELECT s.shortId, s.timestamp
-				    FROM shorts s
-				    JOIN follows f ON f.followee = s.ownerId
-				    WHERE f.follower = '%s'
-				) AS combined_shorts
-				ORDER BY timestamp DESC;
-				""";
+		String postgreQuery = """
+        SELECT shortId
+        FROM (
+            SELECT s.shortId, s.timestamp
+            FROM shorts s
+            WHERE s.ownerId = '%s'
+            UNION
+            SELECT s.shortId, s.timestamp
+            FROM shorts s
+            JOIN follows f ON f.followee = s.ownerId
+            WHERE f.follower = '%s'
+        ) AS combined_shorts
+        ORDER BY timestamp DESC;
+        """;
 
-		return errorOrValue( okUser( userId, password), dbLayer.query(String.class, format(QUERY_FMT, userId, userId), SHORTS_CONTAINER));
+		if (dbLayer instanceof CosmosDBLayer) {
+			final var USER_OWN_SHORTS_QUERY = format("SELECT * FROM %s s WHERE s.ownerId = '%s'", SHORTS_CONTAINER, userId);
+			Result<List<Short>> resOwnShorts = dbLayer.query(Short.class, USER_OWN_SHORTS_QUERY, SHORTS_CONTAINER);
+
+			final var FOLLOWING_USERS_QUERY = format("SELECT * FROM %s f WHERE f.follower = '%s'", FOLLOWS_CONTAINER, userId);
+			Result<List<Following>> resFollowees = dbLayer.query(Following.class, FOLLOWING_USERS_QUERY, FOLLOWS_CONTAINER);
+
+			if (resFollowees.isOK()) {
+				List<String> followeeIds = resFollowees.value().stream().map(Following::getFollowee).toList();
+
+				List<Short> allFolloweeShorts = new ArrayList<>();
+				for (String followeeId : followeeIds) {
+					String FOLLOWEE_SHORTS_QUERY = format("SELECT * FROM %s s WHERE s.ownerId = '%s'", SHORTS_CONTAINER, followeeId);
+					Result<List<Short>> resFolloweeShorts = dbLayer.query(Short.class, FOLLOWEE_SHORTS_QUERY, SHORTS_CONTAINER);
+					if (resFolloweeShorts.isOK()) {
+						allFolloweeShorts.addAll(resFolloweeShorts.value());
+					}
+				}
+
+				List<String> combinedResults = Stream.concat(
+								resOwnShorts.value().stream(),
+								allFolloweeShorts.stream()
+						)
+						.sorted(Comparator.comparing(Short::getTimestamp).reversed())
+						.map(Short::getShortId)
+						.toList();
+
+				return Result.ok(combinedResults);
+			} else {
+				return Result.error(Result.ErrorCode.INTERNAL_ERROR);
+			}
+		}
+
+		else {
+			return errorOrValue(
+					okUser(userId, password),
+					dbLayer.query(String.class, format(postgreQuery, userId, userId), SHORTS_CONTAINER)
+			);
+		}
 	}
-		
-	//TODO REVER E TESTAR DELETE ALL
+
+
 	@Override
 	public Result<Void> deleteAllShorts(String userId, String password, String token) {
-//		Log.info(() -> format("deleteAllShorts : userId = %s, password = %s, token = %s\n", userId, password, token));
-//
-//		if( ! Token.isValid( token, userId ) )
-//			return error(FORBIDDEN);
-//
-//		return DB.transaction( (hibernate) -> {
-//
-//			//delete shorts
-//			var query1 = format("DELETE Short s WHERE s.ownerId = '%s'", userId);
-//			hibernate.createQuery(query1, Short.class).executeUpdate();
-//
-//			//delete follows
-//			var query2 = format("DELETE Following f WHERE f.follower = '%s' OR f.followee = '%s'", userId, userId);
-//			hibernate.createQuery(query2, Following.class).executeUpdate();
-//
-//			//delete likes
-//			var query3 = format("DELETE Likes l WHERE l.ownerId = '%s' OR l.userId = '%s'", userId, userId);
-//			hibernate.createQuery(query3, Likes.class).executeUpdate();
-//
-//		});
-		return error(Result.ErrorCode.NOT_IMPLEMENTED);
+		Log.info(() -> format("deleteAllShorts : userId = %s, password = %s, token = %s\n", userId, password, token));
+
+		if (!Token.isValid(token, userId)) {
+			return error(FORBIDDEN);
+		}
+
+		return errorOrVoid(okUser(userId, password), user -> {
+			if (dbLayer instanceof CosmosDBLayer) {
+
+				// Delete from shorts where ownerId = userId
+				String shortsQuery = format("SELECT * FROM %s s WHERE s.ownerId = '%s'", SHORTS_CONTAINER, userId);
+				Result<List<Short>> shortsToDelete = dbLayer.query(Short.class, shortsQuery, SHORTS_CONTAINER);
+				if (shortsToDelete.isOK()) {
+					shortsToDelete.value().forEach(shortItem -> dbLayer.deleteOne(shortItem, SHORTS_CONTAINER));
+				}
+
+				// Delete from follows where follower = userId or followee = userId
+				String followsQuery = format("SELECT * FROM %s f WHERE f.follower = '%s' OR f.followee = '%s'", FOLLOWS_CONTAINER, userId, userId);
+				Result<List<Following>> followsToDelete = dbLayer.query(Following.class, followsQuery, FOLLOWS_CONTAINER);
+				if (followsToDelete.isOK()) {
+					followsToDelete.value().forEach(followItem -> dbLayer.deleteOne(followItem, FOLLOWS_CONTAINER));
+				}
+
+				// Delete from likes where ownerId = userId or userId = userId
+				String likesQuery = format("SELECT * FROM %s l WHERE l.ownerId = '%s' OR l.userId = '%s'", LIKES_CONTAINER, userId, userId);
+				Result<List<Likes>> likesToDelete = dbLayer.query(Likes.class, likesQuery, LIKES_CONTAINER);
+				if (likesToDelete.isOK()) {
+					likesToDelete.value().forEach(likeItem -> dbLayer.deleteOne(likeItem, LIKES_CONTAINER));
+				}
+
+				return Result.ok();
+			} else {
+				String deleteShortsQuery = format("DELETE FROM %s WHERE ownerId = '%s'", SHORTS_CONTAINER, userId);
+				Result<Void> deleteShortsResult = dbLayer.executeUpdate(deleteShortsQuery, SHORTS_CONTAINER);
+
+				String deleteFollowsQuery = format("DELETE FROM %s WHERE follower = '%s' OR followee = '%s'", FOLLOWS_CONTAINER, userId, userId);
+				Result<Void> deleteFollowsResult = dbLayer.executeUpdate(deleteFollowsQuery, FOLLOWS_CONTAINER);
+
+				String deleteLikesQuery = format("DELETE FROM %s WHERE ownerId = '%s' OR userId = '%s'", LIKES_CONTAINER, userId, userId);
+				Result<Void> deleteLikesResult = dbLayer.executeUpdate(deleteLikesQuery, LIKES_CONTAINER);
+
+				if (deleteShortsResult.isOK() && deleteFollowsResult.isOK() && deleteLikesResult.isOK()) {
+					return Result.ok();
+				} else {
+					return error(Result.ErrorCode.INTERNAL_ERROR);
+				}
+			}
+		});
 	}
 
 	protected Result<User> okUser( String userId, String pwd) {

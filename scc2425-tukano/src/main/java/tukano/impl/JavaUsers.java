@@ -34,7 +34,7 @@ public class JavaUsers implements Users {
 	}
 
 	private JavaUsers() {
-		String dbType = "POSTGRE";  // "COSMOS" vs "POSTGRE" (could be env variable)
+		String dbType = "COSMOS";  // "COSMOS" vs "POSTGRE" (could be env variable)
 		if ("POSTGRE".equalsIgnoreCase(dbType)) {
 			dbLayer = PostgreDBLayer.getInstance();
 		} else {
@@ -90,7 +90,7 @@ public class JavaUsers implements Users {
 			// Delete user shorts and related info asynchronously in a separate thread
 			Executors.defaultThreadFactory().newThread(() -> {
 				JavaShorts.getInstance().deleteAllShorts(userId, pwd, Token.get(userId));
-				JavaBlobs.getInstance().deleteAllBlobs(userId, Token.get(userId));
+				//JavaBlobs.getInstance().deleteAllBlobs(userId, Token.get(userId));
 			}).start();
 
 			return dbLayer.deleteOne(user, USERS_CONTAINER);

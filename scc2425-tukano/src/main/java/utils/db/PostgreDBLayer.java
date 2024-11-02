@@ -161,6 +161,21 @@ public class PostgreDBLayer implements DBLayer {
         }
     }
 
+    @Override
+    public Result<Void> executeUpdate(String queryStr, String container) {
+        try (PreparedStatement statement = connection.prepareStatement(queryStr)) {
+            int rowsAffected = statement.executeUpdate();
+            if (rowsAffected >= 0) {
+                return Result.ok();
+            } else {
+                return Result.error(Result.ErrorCode.INTERNAL_ERROR);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return Result.error(Result.ErrorCode.INTERNAL_ERROR);
+        }
+    }
+
 
     private <T> T mapResultSetToEntity(ResultSet resultSet, Class<T> clazz) throws SQLException, ReflectiveOperationException {
         T obj = clazz.getDeclaredConstructor().newInstance();
