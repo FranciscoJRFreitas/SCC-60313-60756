@@ -4,7 +4,7 @@ import static java.lang.String.format;
 import static tukano.api.Result.error;
 import static tukano.api.Result.errorOrResult;
 import static tukano.api.Result.errorOrValue;
-import static tukano.api.Result.ok;
+import static tukano.api.Result.errorOrVoid;
 import static tukano.api.Result.ErrorCode.BAD_REQUEST;
 import static tukano.api.Result.ErrorCode.FORBIDDEN;
 
@@ -12,20 +12,37 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 
+import redis.clients.jedis.*;
+
 import tukano.api.Result;
 import tukano.api.User;
 import tukano.api.Users;
 import utils.Hash;
+import utils.JSON;
 import utils.db.CosmosDBLayer;
 import utils.db.DBLayer;
 import utils.db.PostgreDBLayer;
+import utils.db.RedisCache;
 
 public class JavaUsers implements Users {
 
 	private static Logger Log = Logger.getLogger(JavaUsers.class.getName());
 	private static final String USERS_CONTAINER = "users";
+	private static final String USER_CACHE_PREFIX = "users:";
 	private static Users instance;
+
 	private static DBLayer dbLayer;
+	private static final boolean useCache;
+
+	static {
+		String dbType = System.getenv("DB_TYPE"); // "NOSQL" vs "POSTGRESQL" (backend env variable)
+		if ("POSTGRESQL".equalsIgnoreCase(dbType)) {
+			dbLayer = PostgreDBLayer.getInstance();
+		} else {
+			dbLayer = CosmosDBLayer.getInstance();
+		}
+		useCache = System.getenv("USE_CACHE").equalsIgnoreCase("true"); // "true" to use cache : "false" if not (backend env variable)
+	}
 
 	synchronized public static Users getInstance() {
 		if (instance == null)
@@ -33,14 +50,7 @@ public class JavaUsers implements Users {
 		return instance;
 	}
 
-	private JavaUsers() {
-		String dbType = "COSMOS";  // "COSMOS" vs "POSTGRE" (could be env variable)
-		if ("POSTGRE".equalsIgnoreCase(dbType)) {
-			dbLayer = PostgreDBLayer.getInstance();
-		} else {
-			dbLayer = CosmosDBLayer.getInstance();
-		}
-	}
+	private JavaUsers() {}
 
 	@Override
 	public Result<String> createUser(User user) {
@@ -52,7 +62,17 @@ public class JavaUsers implements Users {
 		user.setId(user.getUserId());
 		user.setPwd(Hash.sha256(user.getPwd()));
 
-		return errorOrValue(dbLayer.insertOne(user, USERS_CONTAINER), user.getUserId());
+		Result<String> result = errorOrValue(dbLayer.insertOne(user, USERS_CONTAINER), user.getUserId());
+
+		if (result.isOK() && useCache) {
+			try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+				var key = USER_CACHE_PREFIX + result.value();
+				jedis.set(key, JSON.encode(user));
+				jedis.expire(key, 259200); // Cache for 3 days
+			}
+		}
+
+		return result;
 	}
 
 	@Override
@@ -62,7 +82,28 @@ public class JavaUsers implements Users {
 		if (userId == null || pwd == null)
 			return error(BAD_REQUEST);
 
-		return validatedUserOrError(dbLayer.getOne(userId, User.class, USERS_CONTAINER), pwd);
+		if (useCache) {
+			try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+				var key = USER_CACHE_PREFIX + userId;
+				String cachedValue = jedis.get(key);
+				if (cachedValue != null) {
+					User cachedUser = JSON.decode(cachedValue, User.class);
+                    return cachedUser.getPwd().equals(Hash.sha256(pwd)) ? Result.ok(cachedUser) : error(FORBIDDEN);
+				}
+			}
+		}
+
+		// Fallback to DB retrieval if not cached
+		Result<User> result = validatedUserOrError(dbLayer.getOne(userId, User.class, USERS_CONTAINER), pwd);
+		if (useCache && result.isOK()) {
+			try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+				var key = USER_CACHE_PREFIX + userId;
+				jedis.set(key, JSON.encode(result.value()));
+				jedis.expire(key, 259200); // Cache for 3 days
+			}
+		}
+
+		return result;
 	}
 
 	@Override
@@ -75,7 +116,17 @@ public class JavaUsers implements Users {
 		other.setPwd(Hash.sha256(pwd));
 
 		return errorOrResult(validatedUserOrError(dbLayer.getOne(userId, User.class, USERS_CONTAINER), pwd),
-				user -> dbLayer.updateOne(user.updateFrom(other), USERS_CONTAINER));
+				user -> {
+					Result<User> updateResult = dbLayer.updateOne(user.updateFrom(other), USERS_CONTAINER);
+					if (useCache && updateResult.isOK()) {
+						try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+							var key = USER_CACHE_PREFIX + userId;
+							jedis.set(key, JSON.encode(updateResult.value()));
+							jedis.expire(key, 259200); // Cache for 3 days
+						}
+					}
+					return updateResult;
+				});
 	}
 
 	@Override
@@ -92,6 +143,13 @@ public class JavaUsers implements Users {
 				JavaShorts.getInstance().deleteAllShorts(userId, pwd, Token.get(userId));
 				//JavaBlobs.getInstance().deleteAllBlobs(userId, Token.get(userId));
 			}).start();
+
+			if (useCache) {
+				try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+					var key = USER_CACHE_PREFIX + userId;
+					jedis.del(key);
+				}
+			}
 
 			return dbLayer.deleteOne(user, USERS_CONTAINER);
 		});

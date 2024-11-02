@@ -37,24 +37,24 @@ public class JavaShorts implements Shorts {
 
 	private static Logger Log = Logger.getLogger(JavaShorts.class.getName());
 	private static final String SHORT_CACHE_PREFIX = "shorts:";
-	private static final String NUM_USERS_COUNTER = "NumUsers";
+	private static final String FEED_CACHE_PREFIX = "feeds:";
+	private static final String LIKE_CACHE_SUFIX = ":likes";
+	private static final String TOTAL_LIKE_CACHE_SUFIX =":totalLikes";
 	private static final String SHORTS_CONTAINER = "shorts";
-
 	private static final String FOLLOWS_CONTAINER = "follows";
 	private static final String LIKES_CONTAINER = "likes";
 	private static Shorts instance;
-
 	private static final DBLayer dbLayer;
 	private static final boolean useCache;
 
 	static {
-		String dbType = "COSMOS"; // "COSMOS" vs "POSTGRE" (could be env variable)
-		if ("POSTGRE".equalsIgnoreCase(dbType)) {
+		String dbType = System.getenv("DB_TYPE"); // "NOSQL" vs "POSTGRESQL" (backend env variable)
+		if ("POSTGRESQL".equalsIgnoreCase(dbType)) {
 			dbLayer = PostgreDBLayer.getInstance();
 		} else {
 			dbLayer = CosmosDBLayer.getInstance();
 		}
-		useCache = false;
+		useCache = System.getenv("USE_CACHE").equalsIgnoreCase("true"); // "true" to use cache : "false" if not (backend env variable)
 	}
 	
 	synchronized public static Shorts getInstance() {
@@ -89,30 +89,24 @@ public class JavaShorts implements Shorts {
 		});
 	}
 
-	//TODO FALTA FAZER O GET!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	/* @Override
-	public Result<Short> getShort(String shortId) {
-		Log.info(() -> format("getShort : shortId = %s\n", shortId));
-
-		if( shortId == null )
-			return error(BAD_REQUEST);
-
-		var query = format("SELECT count(*) FROM Likes l WHERE l.shortId = '%s'", shortId);
-		var likes = DB.sql(query, Long.class);
-		return errorOrValue( getOne(shortId, Short.class), shrt -> shrt.copyWithLikes_And_Token( likes.get(0)));
-	}*/
 	@Override
 	public Result<Short> getShort(String shortId) {
 		if (shortId == null)
 			return error(Result.ErrorCode.BAD_REQUEST);
 
 		if (useCache) {
-			// Retrieve from Redis if available
 			try (Jedis jedis = RedisCache.getCachePool().getResource()) {
 				var key = SHORT_CACHE_PREFIX + shortId;
 				String cachedValue = jedis.get(key);
 				if (cachedValue != null) {
 					Short cachedShort = JSON.decode(cachedValue, Short.class);
+
+					String totalLikesKey = SHORT_CACHE_PREFIX + shortId + ":totalLikes";
+					String cachedLikesCount = jedis.get(totalLikesKey);
+					if (cachedLikesCount != null) {
+						cachedShort.setTotalLikes(Integer.parseInt(cachedLikesCount));
+					}
+
 					return ok(cachedShort);
 				}
 			}
@@ -125,11 +119,16 @@ public class JavaShorts implements Shorts {
 					var key = SHORT_CACHE_PREFIX + shortId;
 					jedis.set(key, JSON.encode(shrt));
 					jedis.expire(key, 259200); // Cache for 3 days
+
+					String totalLikesKey = SHORT_CACHE_PREFIX + shortId + ":totalLikes";
+					jedis.set(totalLikesKey, String.valueOf(shrt.getTotalLikes()));
+					jedis.expire(totalLikesKey, 259200); // Cache for 3 days
 				}
 			}
 			return shrt;
 		});
 	}
+
 
 	@Override
 	public Result<Void> deleteShort(String shortId, String password) {
@@ -158,12 +157,30 @@ public class JavaShorts implements Shorts {
 	public Result<List<String>> getShorts(String userId) {
 		Log.info(() -> format("getShorts : userId = %s\n", userId));
 
+		if (useCache) {
+			try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+				var key = SHORT_CACHE_PREFIX + userId;
+				List<String> cachedShortIds = jedis.lrange(key, 0, -1);
+				if (!cachedShortIds.isEmpty()) {
+					return Result.ok(cachedShortIds);
+				}
+			}
+		}
+
 		String cosmosQuery = format("SELECT * FROM %s s WHERE s.ownerId = '%s'", SHORTS_CONTAINER, userId);
 		String postgreQuery = format("SELECT s.shortId FROM %s s WHERE s.ownerId = '%s'", SHORTS_CONTAINER, userId);
 
 		Result<List<String>> result = dbLayer instanceof CosmosDBLayer
 				? ((CosmosDBLayer) dbLayer).queryAndMapResults(Short.class, cosmosQuery, SHORTS_CONTAINER, Short::getShortId)
 				: dbLayer.query(String.class, postgreQuery, SHORTS_CONTAINER);
+
+		if (useCache && result.isOK() && !result.value().isEmpty()) {
+			try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+				var key = SHORT_CACHE_PREFIX + userId;
+				jedis.rpush(key, result.value().toArray(new String[0]));
+				jedis.expire(key, 259200); // Cache for 3 days
+			}
+		}
 
 		return result.isOK() && result.value().isEmpty()
 				? error(Result.ErrorCode.NOT_FOUND)
@@ -196,30 +213,92 @@ public class JavaShorts implements Shorts {
 		);
 	}
 
-
 	@Override
 	public Result<Void> like(String shortId, String userId, LikesData isLiked, String password) {
 		Log.info(() -> format("like : shortId = %s, userId = %s, isLiked = %s, pwd = %s\n", shortId, userId, isLiked.getIsLiked(), password));
 
-		return errorOrResult( getShort(shortId), shrt -> {
+		return errorOrResult(getShort(shortId), shrt -> {
 			var l = new Likes(userId, shortId, shrt.getOwnerId());
 			l.setId();
-			return errorOrVoid( okUser( userId, password), !isLiked.getIsLiked() ? dbLayer.insertOne( l, LIKES_CONTAINER) : dbLayer.deleteOne( l, LIKES_CONTAINER ));
+			Result<Void> result = errorOrVoid(okUser(userId, password),
+					!isLiked.getIsLiked() ? dbLayer.insertOne(l, LIKES_CONTAINER) : dbLayer.deleteOne(l, LIKES_CONTAINER));
+
+			if (result.isOK()) {
+				if (useCache) {
+					String totalLikesKey = SHORT_CACHE_PREFIX + shortId + TOTAL_LIKE_CACHE_SUFIX;
+					String likesListKey = SHORT_CACHE_PREFIX + shortId + LIKE_CACHE_SUFIX;
+
+					try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+						if (isLiked.getIsLiked()) {
+							jedis.decr(totalLikesKey);
+							jedis.lrem(likesListKey, 1, userId);
+						} else {
+							jedis.incr(totalLikesKey);
+							jedis.rpush(likesListKey, userId);
+						}
+
+						shrt.setTotalLikes((int) Long.parseLong(jedis.get(totalLikesKey)));
+						dbLayer.updateOne(shrt, SHORTS_CONTAINER);
+					}
+				} else {
+					// not using cache
+					int newTotalLikes = isLiked.getIsLiked() ? shrt.getTotalLikes() - 1 : shrt.getTotalLikes() + 1;
+					shrt.setTotalLikes(newTotalLikes);
+					dbLayer.updateOne(shrt, SHORTS_CONTAINER);
+				}
+			}
+
+			return result;
 		});
 	}
+
 
 	@Override
 	public Result<List<String>> likes(String shortId, String password) {
 		Log.info(() -> format("likes : shortId = %s, pwd = %s\n", shortId, password));
 
 		return errorOrResult(getShort(shortId), shrt -> {
+			List<String> userLikes;
 
-			String cosmosQuery = format("SELECT %s.userId FROM %s WHERE %s.shortId = '%s'",LIKES_CONTAINER, LIKES_CONTAINER, LIKES_CONTAINER, shortId);
+			if (useCache) {
+				try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+					String likesKey = SHORT_CACHE_PREFIX + shortId + LIKE_CACHE_SUFIX;
+					userLikes = jedis.lrange(likesKey, 0, -1);
+
+					if (!userLikes.isEmpty() || jedis.exists(likesKey)) {
+						return Result.ok(userLikes); // cache contains no likes
+					}
+				}
+			}
+
+			String cosmosQuery = format("SELECT %s.userId FROM %s WHERE %s.shortId = '%s'", LIKES_CONTAINER, LIKES_CONTAINER, LIKES_CONTAINER, shortId);
 			String postgreQuery = format("SELECT userId FROM %s WHERE shortId = '%s'", LIKES_CONTAINER, shortId);
 
-			return errorOrValue(okUser(shrt.getOwnerId(), password), dbLayer instanceof CosmosDBLayer ?
-					((CosmosDBLayer) dbLayer).queryAndMapResults(Likes.class, cosmosQuery, LIKES_CONTAINER, Likes::getUserId)
-					: dbLayer.query(String.class, postgreQuery, LIKES_CONTAINER));
+			Result<List<String>> result = errorOrValue(okUser(shrt.getOwnerId(), password),
+					dbLayer instanceof CosmosDBLayer ?
+							((CosmosDBLayer) dbLayer).queryAndMapResults(Likes.class, cosmosQuery, LIKES_CONTAINER, Likes::getUserId) :
+							dbLayer.query(String.class, postgreQuery, LIKES_CONTAINER));
+
+			if (result.isOK()) {
+				userLikes = result.value();
+
+				if (useCache) {
+					try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+						String likesKey = SHORT_CACHE_PREFIX + shortId + LIKE_CACHE_SUFIX;
+
+						if (!userLikes.isEmpty()) {
+							jedis.rpush(likesKey, userLikes.toArray(new String[0]));
+						} else {
+							jedis.rpush(likesKey, "");
+						}
+						jedis.expire(likesKey, 259200); // Cache for 3 days
+					}
+				}
+
+				return Result.ok(userLikes);
+			} else {
+				return result;
+			}
 		});
 	}
 
@@ -227,6 +306,16 @@ public class JavaShorts implements Shorts {
 	@Override
 	public Result<List<String>> getFeed(String userId, String password) {
 		Log.info(() -> format("getFeed : userId = %s, pwd = %s\n", userId, password));
+
+		if (useCache) {
+			try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+				var key = FEED_CACHE_PREFIX + userId;
+				List<String> cachedFeed = jedis.lrange(key, 0, -1);
+				if (!cachedFeed.isEmpty()) {
+					return Result.ok(cachedFeed);
+				}
+			}
+		}
 
 		String postgreQuery = """
         SELECT shortId
@@ -270,20 +359,35 @@ public class JavaShorts implements Shorts {
 						.map(Short::getShortId)
 						.toList();
 
+				if (useCache) {
+					try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+						var key = FEED_CACHE_PREFIX + userId;
+						jedis.rpush(key, combinedResults.toArray(new String[0]));
+						jedis.expire(key, 259200); // Cache for 3 days
+					}
+				}
+
 				return Result.ok(combinedResults);
 			} else {
 				return Result.error(Result.ErrorCode.INTERNAL_ERROR);
 			}
-		}
-
-		else {
-			return errorOrValue(
+		} else {
+			Result<List<String>> result = errorOrValue(
 					okUser(userId, password),
 					dbLayer.query(String.class, format(postgreQuery, userId, userId), SHORTS_CONTAINER)
 			);
+
+			if (useCache && result.isOK()) {
+				try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+					var key = FEED_CACHE_PREFIX + userId;
+					jedis.rpush(key, result.value().toArray(new String[0]));
+					jedis.expire(key, 259200); // Cache for 3 days
+				}
+			}
+
+			return result;
 		}
 	}
-
 
 	@Override
 	public Result<Void> deleteAllShorts(String userId, String password, String token) {
@@ -317,6 +421,13 @@ public class JavaShorts implements Shorts {
 					likesToDelete.value().forEach(likeItem -> dbLayer.deleteOne(likeItem, LIKES_CONTAINER));
 				}
 
+				if (useCache) {
+					try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+						jedis.del(SHORT_CACHE_PREFIX + userId); // Delete user-specific shorts list
+						jedis.del(FEED_CACHE_PREFIX + userId); // Delete feed for user
+					}
+				}
+
 				return Result.ok();
 			} else {
 				String deleteShortsQuery = format("DELETE FROM %s WHERE ownerId = '%s'", SHORTS_CONTAINER, userId);
@@ -329,6 +440,12 @@ public class JavaShorts implements Shorts {
 				Result<Void> deleteLikesResult = dbLayer.executeUpdate(deleteLikesQuery, LIKES_CONTAINER);
 
 				if (deleteShortsResult.isOK() && deleteFollowsResult.isOK() && deleteLikesResult.isOK()) {
+					if (useCache) {
+						try (Jedis jedis = RedisCache.getCachePool().getResource()) {
+							jedis.del(SHORT_CACHE_PREFIX + userId); // Delete user-specific shorts list
+							jedis.del(FEED_CACHE_PREFIX + userId); // Delete feed for user
+						}
+					}
 					return Result.ok();
 				} else {
 					return error(Result.ErrorCode.INTERNAL_ERROR);
