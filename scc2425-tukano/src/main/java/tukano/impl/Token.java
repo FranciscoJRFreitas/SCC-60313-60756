@@ -8,7 +8,7 @@ public class Token {
 	private static Logger Log = Logger.getLogger(Token.class.getName());
 
 	private static final String DELIMITER = "-";
-	private static final long MAX_TOKEN_AGE = 300000;
+	private static final long MAX_TOKEN_AGE = 600000; // 10 mins default
 	private static String secret;
 
 	public static void setSecret(String s) {
@@ -24,6 +24,7 @@ public class Token {
 	public static String get(String id) {
 		var timestamp = System.currentTimeMillis();
 		var signature = Hash.of(id, timestamp, secret);
+		Log.info(String.format("ENCRYPTING TOKEN WITH id: %s timestamp: %d secret: %s", id, timestamp, secret));
 		return String.format("%s%s%s", timestamp, DELIMITER, signature);
 	}
 

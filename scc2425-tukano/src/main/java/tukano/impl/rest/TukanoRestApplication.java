@@ -22,7 +22,7 @@ public class TukanoRestApplication extends Application {
         singletons.add(new GenericExceptionMapper());
 
         // Load properties later
-        Token.setSecret("SECRET_SCC");
+        Token.setSecret("6031360756");
     }
 
     @Override

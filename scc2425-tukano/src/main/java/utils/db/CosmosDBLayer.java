@@ -21,12 +21,9 @@ import tukano.impl.rest.utils.CustomLoggingFilter;
 
 //Change the containers
 public class CosmosDBLayer implements DBLayer {
-    //private static final String CONNECTION_URL = "https://cosmosdb6031360756.documents.azure.com:443/";
-    private static final String CONNECTION_URL = "https://cosmos6031360756proj.documents.azure.com:443/";
-    //private static final String DB_KEY = "QIvPOerJ4SxHaPBGmU5aPe5GCdKGXLFNNhRTUgPnGzyF4ghC12jcSscIiySpJNqiQG1IzUpXSXX4ACDbWJd2fw==";
-    private static final String DB_KEY = "0tGZcqORbS5b7BIkRsoOPy903AncoSx3rDwUIcIgs3tnAQBpe6lU1lFnHtolQgCrfI9bFLB6Ns7bACDbwL3niQ==";
-    //private static final String DB_NAME = "cosmosdb6031360756";
-    private static final String DB_NAME = "proj2425";
+    private static final String CONNECTION_URL = System.getenv("CONNECTION_URL");
+    private static final String DB_KEY = System.getenv("DB_KEY");
+    private static final String DB_NAME = System.getenv("DB_NAME");
     private static Logger Log = Logger.getLogger(CosmosDBLayer.class.getName());
     private static CosmosDBLayer instance;
 

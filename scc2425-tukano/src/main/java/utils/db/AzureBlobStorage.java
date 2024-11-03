@@ -14,7 +14,7 @@ import java.util.logging.Logger;
 public class AzureBlobStorage {
 
     private static final String BLOBS_CONTAINER_NAME = "shorts";
-    private static final String STORAGE_CONNECTION_STRING = "DefaultEndpointsProtocol=https;AccountName=sccproj;AccountKey=Izr6E4pu7x9ly2tNHmnP/DbGZhrwSunWoppYSZ7PBcXrKqwcZD0W4DUl9rGs5YtmqMKmTNDNXx3W+ASt+roZZQ==;EndpointSuffix=core.windows.net";
+    private static final String STORAGE_CONNECTION_STRING = System.getenv("STORAGE_CONNECTION_STRING");
 
     private final BlobContainerClient containerClient;
     private static final Logger Log = Logger.getLogger(AzureBlobStorage.class.getName());

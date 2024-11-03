@@ -10,12 +10,7 @@ import java.util.logging.Logger;
 public class PostgreDBLayer implements DBLayer {
 
     //CONSOLE COMMAND AFTER FAILED ATTEMPT: psql -h c-projcluster.5slxk7ap6q23ri.postgres.cosmos.azure.com -p 5432 -U citus -d sccprojdb
-    private static final String DB_HOSTNAME = "c-projcluster.5slxk7ap6q23ri.postgres.cosmos.azure.com";
-    private static final String DB_NAME = "sccprojdb";
-    private static final String DB_USERNAME = "citus";
-    private static final String DB_PASSWORD = "Scc_secret";
-    //private static final String DB_URL = String.format("jdbc:postgresql://%s:5432/%s?user=%s@%s&password=%s&ssl=true",DB_HOSTNAME, DB_NAME, DB_USERNAME, DB_HOSTNAME, DB_PASSWORD);
-    private static final String DB_URL = "jdbc:postgresql://c-projcluster.5slxk7ap6q23ri.postgres.cosmos.azure.com:5432/sccprojdb?user=citus&password=Scc_secret&sslmode=require";
+    private static final String DB_URL = System.getenv("DB_URL");
     private static PostgreDBLayer instance;
     private Connection connection;
     private static final Logger log = Logger.getLogger(PostgreDBLayer.class.getName());

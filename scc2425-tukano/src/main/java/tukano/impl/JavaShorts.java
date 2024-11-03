@@ -8,10 +8,7 @@ import static tukano.api.Result.errorOrVoid;
 import static tukano.api.Result.ok;
 import static tukano.api.Result.ErrorCode.FORBIDDEN;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 
@@ -26,7 +23,6 @@ import tukano.impl.data.Following;
 import tukano.impl.data.FollowingData;
 import tukano.impl.data.Likes;
 import tukano.impl.data.LikesData;
-import tukano.impl.rest.TukanoRestServer;
 import utils.JSON;
 import utils.db.CosmosDBLayer;
 import utils.db.DBLayer;
@@ -36,6 +32,7 @@ import utils.db.RedisCache;
 public class JavaShorts implements Shorts {
 
 	private static Logger Log = Logger.getLogger(JavaShorts.class.getName());
+	private static final String REST_BACKEND_URL = System.getenv("REST_BACKEND_URL");
 	private static final String SHORT_CACHE_PREFIX = "shorts:";
 	private static final String FEED_CACHE_PREFIX = "feeds:";
 	private static final String LIKE_CACHE_SUFIX = ":likes";
@@ -71,7 +68,7 @@ public class JavaShorts implements Shorts {
 
 		return errorOrResult(okUser(userId, password), user -> {
 			var shortId = format("%s+%s", userId, UUID.randomUUID());
-			var blobUrl = format("%s/%s/%s", "https://scc-backend-smd-60313-60756-test.azurewebsites.net/rest", Blobs.NAME, shortId);
+			var blobUrl = format("%s/%s/%s", REST_BACKEND_URL, Blobs.NAME, shortId);
 			var shrt = new Short(shortId, userId, blobUrl);
 			shrt.setId(shrt.getShortId());
 			Result<Short> res = errorOrValue(dbLayer.insertOne(shrt, SHORTS_CONTAINER), s -> s.copyWithLikes_And_Token(0));
@@ -80,7 +77,7 @@ public class JavaShorts implements Shorts {
 				return Result.error(res.error());
 			}
 
-			JavaBlobs.getInstance().upload(shortId, new byte[0], Token.get(blobUrl));
+			JavaBlobs.getInstance().upload(shortId, new byte[0], Token.get(shortId));
 
 			if (useCache) {
 				// Cache short in Redis
@@ -144,16 +141,14 @@ public class JavaShorts implements Shorts {
 			return errorOrVoid(okUser(shrt.getOwnerId(), password), user -> {
 
 				// Delete blob from JavaBlobs
-				//JavaBlobs.getInstance().delete(shrt.getBlobUrl(), Token.get());
+				JavaBlobs.getInstance().delete(shortId, Token.get(shortId));
 
-				// Delete from Redis cache if enabled
 				if (useCache) {
 					try (Jedis jedis = RedisCache.getCachePool().getResource()) {
 						var key = SHORT_CACHE_PREFIX + shortId;
 						jedis.del(key); // Delete from Redis
 					}
 				}
-				// Delete from DB
 				return dbLayer.deleteOne(shrt, SHORTS_CONTAINER);
 			});
         });
@@ -414,23 +409,36 @@ public class JavaShorts implements Shorts {
 				}
 
 				// Delete from follows where follower = userId or followee = userId
-				String followsQuery = format("SELECT * FROM %s f WHERE f.follower = '%s' OR f.followee = '%s'", FOLLOWS_CONTAINER, userId, userId);
-				Result<List<Following>> followsToDelete = dbLayer.query(Following.class, followsQuery, FOLLOWS_CONTAINER);
-				if (followsToDelete.isOK()) {
-					followsToDelete.value().forEach(followItem -> dbLayer.deleteOne(followItem, FOLLOWS_CONTAINER));
-				}
+				String followerQuery = format("SELECT * FROM %s f WHERE f.follower = '%s'", FOLLOWS_CONTAINER, userId);
+				String followeeQuery = format("SELECT * FROM %s f WHERE f.followee = '%s'", FOLLOWS_CONTAINER, userId);
+				Result<List<Following>> followsToDeleteFollower = dbLayer.query(Following.class, followerQuery, FOLLOWS_CONTAINER);
+				Result<List<Following>> followsToDeleteFollowee = dbLayer.query(Following.class, followeeQuery, FOLLOWS_CONTAINER);
+
+				if (followsToDeleteFollower.isOK())
+					followsToDeleteFollower.value().forEach(followItem -> dbLayer.deleteOne(followItem, FOLLOWS_CONTAINER));
+
+				if (followsToDeleteFollowee.isOK())
+					followsToDeleteFollowee.value().forEach(followItem -> dbLayer.deleteOne(followItem, FOLLOWS_CONTAINER));
 
 				// Delete from likes where ownerId = userId or userId = userId
-				String likesQuery = format("SELECT * FROM %s l WHERE l.ownerId = '%s' OR l.userId = '%s'", LIKES_CONTAINER, userId, userId);
-				Result<List<Likes>> likesToDelete = dbLayer.query(Likes.class, likesQuery, LIKES_CONTAINER);
-				if (likesToDelete.isOK()) {
-					likesToDelete.value().forEach(likeItem -> dbLayer.deleteOne(likeItem, LIKES_CONTAINER));
+				String likesOwnerQuery = format("SELECT * FROM %s l WHERE l.ownerId = '%s' ", LIKES_CONTAINER, userId);
+				String likesUserQuery = format("SELECT * FROM %s l WHERE l.userId = '%s'", LIKES_CONTAINER, userId);
+				Result<List<Likes>> likesToDeleteOwner = dbLayer.query(Likes.class, likesOwnerQuery, LIKES_CONTAINER);
+				Result<List<Likes>> likesToDeleteUser = dbLayer.query(Likes.class, likesUserQuery, LIKES_CONTAINER);
+				if (likesToDeleteOwner.isOK()) {
+					likesToDeleteOwner.value().forEach(likeItem -> dbLayer.deleteOne(likeItem, LIKES_CONTAINER));
+				}
+				if (likesToDeleteUser.isOK()) {
+					likesToDeleteUser.value().forEach(likeItem -> dbLayer.deleteOne(likeItem, LIKES_CONTAINER));
 				}
 
 				if (useCache) {
 					try (Jedis jedis = RedisCache.getCachePool().getResource()) {
-						jedis.del(SHORT_CACHE_PREFIX + userId); // Delete user-specific shorts list
-						jedis.del(FEED_CACHE_PREFIX + userId); // Delete feed for user
+						Set<String> keys = jedis.keys(SHORT_CACHE_PREFIX + userId + "+");
+						for (String key : keys) {
+							jedis.del(key);
+						}
+						jedis.del(FEED_CACHE_PREFIX + userId); // Delete feed
 					}
 				}
 
@@ -448,8 +456,11 @@ public class JavaShorts implements Shorts {
 				if (deleteShortsResult.isOK() && deleteFollowsResult.isOK() && deleteLikesResult.isOK()) {
 					if (useCache) {
 						try (Jedis jedis = RedisCache.getCachePool().getResource()) {
-							jedis.del(SHORT_CACHE_PREFIX + userId); // Delete user-specific shorts list
-							jedis.del(FEED_CACHE_PREFIX + userId); // Delete feed for user
+							Set<String> keys = jedis.keys(SHORT_CACHE_PREFIX + userId);
+							for (String key : keys) {
+								jedis.del(key);
+							}
+							jedis.del(FEED_CACHE_PREFIX + userId); // Delete feed
 						}
 					}
 					return Result.ok();

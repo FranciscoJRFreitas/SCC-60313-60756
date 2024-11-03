@@ -51,7 +51,6 @@ public class TukanoRestServer {
 		Args.use(args);
 		
 		Token.setSecret( Args.valueOf("-secret", "6031360756"));
-		//Props.load( Args.valueOf("-props", "").split(","));
 		
 		new TukanoRestServer().start();
 	}

@@ -4,7 +4,6 @@ import static java.lang.String.format;
 import static tukano.api.Result.error;
 import static tukano.api.Result.errorOrResult;
 import static tukano.api.Result.errorOrValue;
-import static tukano.api.Result.errorOrVoid;
 import static tukano.api.Result.ErrorCode.BAD_REQUEST;
 import static tukano.api.Result.ErrorCode.FORBIDDEN;
 
@@ -141,7 +140,7 @@ public class JavaUsers implements Users {
 			// Delete user shorts and related info asynchronously in a separate thread
 			Executors.defaultThreadFactory().newThread(() -> {
 				JavaShorts.getInstance().deleteAllShorts(userId, pwd, Token.get(userId));
-				//JavaBlobs.getInstance().deleteAllBlobs(userId, Token.get(userId));
+				JavaBlobs.getInstance().deleteAllBlobs(userId, Token.get(userId));
 			}).start();
 
 			if (useCache) {

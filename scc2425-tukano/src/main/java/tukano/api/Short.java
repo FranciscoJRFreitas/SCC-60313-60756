@@ -95,9 +95,10 @@ public class Short {
 		return "Short [shortId=" + shortId + ", ownerId=" + ownerId + ", blobUrl=" + blobUrl + ", timestamp="
 				+ timestamp + ", totalLikes=" + totalLikes + "]";
 	}
-	
+
+	// Token.get(blobUrl) changed to Token.get(shortId) (our decision)
 	public Short copyWithLikes_And_Token( long totLikes) {
-		var urlWithToken = String.format("%s?token=%s", blobUrl, Token.get(blobUrl));
+		var urlWithToken = String.format("%s?token=%s", blobUrl, Token.get(shortId));
 		return new Short( shortId, ownerId, urlWithToken, timestamp, (int)totLikes);
 	}	
 }
