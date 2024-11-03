@@ -433,7 +433,7 @@ public class JavaShorts implements Shorts {
 
 				if (useCache) {
 					try (Jedis jedis = RedisCache.getCachePool().getResource()) {
-						Set<String> keys = jedis.keys(SHORT_CACHE_PREFIX + userId + "+");
+						Set<String> keys = jedis.keys(SHORT_CACHE_PREFIX + userId + "+*");
 						for (String key : keys) {
 							jedis.del(key);
 						}
@@ -455,7 +455,7 @@ public class JavaShorts implements Shorts {
 				if (deleteShortsResult.isOK() && deleteFollowsResult.isOK() && deleteLikesResult.isOK()) {
 					if (useCache) {
 						try (Jedis jedis = RedisCache.getCachePool().getResource()) {
-							Set<String> keys = jedis.keys(SHORT_CACHE_PREFIX + userId);
+							Set<String> keys = jedis.keys(SHORT_CACHE_PREFIX + userId + "+*");
 							for (String key : keys) {
 								jedis.del(key);
 							}
