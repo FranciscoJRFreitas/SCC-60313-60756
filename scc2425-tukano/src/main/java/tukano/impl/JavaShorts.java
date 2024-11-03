@@ -404,9 +404,8 @@ public class JavaShorts implements Shorts {
 				// Delete from shorts where ownerId = userId
 				String shortsQuery = format("SELECT * FROM %s s WHERE s.ownerId = '%s'", SHORTS_CONTAINER, userId);
 				Result<List<Short>> shortsToDelete = dbLayer.query(Short.class, shortsQuery, SHORTS_CONTAINER);
-				if (shortsToDelete.isOK()) {
+				if (shortsToDelete.isOK())
 					shortsToDelete.value().forEach(shortItem -> dbLayer.deleteOne(shortItem, SHORTS_CONTAINER));
-				}
 
 				// Delete from follows where follower = userId or followee = userId
 				String followerQuery = format("SELECT * FROM %s f WHERE f.follower = '%s'", FOLLOWS_CONTAINER, userId);
