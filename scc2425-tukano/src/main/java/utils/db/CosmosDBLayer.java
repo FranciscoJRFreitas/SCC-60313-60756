@@ -35,15 +35,14 @@ public class CosmosDBLayer implements DBLayer {
                 .endpoint(CONNECTION_URL)
                 .key(DB_KEY)
                 //.directMode()
-                .gatewayMode()
-                // replace by .directMode() for better performance
+                //.gatewayMode()
+                .directMode()
                 .consistencyLevel(ConsistencyLevel.SESSION)
                 .connectionSharingAcrossClientsEnabled(true)
                 .contentResponseOnWriteEnabled(true)
                 .buildClient();
         instance = new CosmosDBLayer( client);
         return instance;
-
     }
 
     private final CosmosClient client;

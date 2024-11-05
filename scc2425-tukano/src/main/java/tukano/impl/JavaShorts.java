@@ -204,14 +204,11 @@ public class JavaShorts implements Shorts {
 	public Result<List<String>> followers(String userId, String password) {
 		Log.info(() -> format("followers : userId = %s, pwd = %s\n", userId, password));
 
-		String cosmosQuery = format("SELECT * FROM %s f WHERE f.followee = '%s'", FOLLOWS_CONTAINER, userId);
+		String cosmosQuery = format("SELECT VALUE f.follower FROM %s f WHERE f.followee = '%s'", FOLLOWS_CONTAINER, userId);
 		String postgreQuery = format("SELECT f.follower FROM %s f WHERE f.followee = '%s'", FOLLOWS_CONTAINER, userId);
 
 		return errorOrValue(okUser(userId, password),
-				dbLayer instanceof CosmosDBLayer
-						? ((CosmosDBLayer) dbLayer).queryAndMapResults(Following.class, cosmosQuery, FOLLOWS_CONTAINER, Following::getFollower)
-						: dbLayer.query(String.class, postgreQuery, FOLLOWS_CONTAINER)
-		);
+				dbLayer.query(String.class, dbLayer instanceof CosmosDBLayer ? cosmosQuery : postgreQuery, FOLLOWS_CONTAINER));
 	}
 
 	@Override
@@ -405,7 +402,7 @@ public class JavaShorts implements Shorts {
 				String shortsQuery = format("SELECT * FROM %s s WHERE s.ownerId = '%s'", SHORTS_CONTAINER, userId);
 				Result<List<Short>> shortsToDelete = dbLayer.query(Short.class, shortsQuery, SHORTS_CONTAINER);
 				if (shortsToDelete.isOK())
-					shortsToDelete.value().forEach(shortItem -> dbLayer.deleteOne(shortItem, SHORTS_CONTAINER));
+					shortsToDelete.value().forEach(shortItem -> deleteShort(shortItem.getShortId(), password));
 
 				// Delete from follows where follower = userId or followee = userId
 				String followerQuery = format("SELECT * FROM %s f WHERE f.follower = '%s'", FOLLOWS_CONTAINER, userId);
@@ -433,11 +430,7 @@ public class JavaShorts implements Shorts {
 
 				if (useCache) {
 					try (Jedis jedis = RedisCache.getCachePool().getResource()) {
-						Set<String> keys = jedis.keys(SHORT_CACHE_PREFIX + userId + "+");
-						for (String key : keys) {
-							jedis.del(key);
-						}
-						jedis.del(FEED_CACHE_PREFIX + userId); // Delete feed
+						jedis.del(FEED_CACHE_PREFIX + userId);
 					}
 				}
 

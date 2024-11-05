@@ -1,0 +1,37 @@
+config:
+  target: https://scc-backend-smd-60313-60756.azurewebsites.net/rest
+  phases:
+    - duration: 1
+      arrivalRate: 1
+
+scenarios:
+  - name: CreateUsers
+    flow:
+      - post:
+          url: /users
+          json:
+            userId: "ana"
+            pwd: "Pass123!"
+            email: "user1@users.com"
+            displayName: "User 1"
+      - post:
+          url: /users
+          json:
+            userId: "bob"
+            pwd: "Pass123!"
+            email: "user2@users.com"
+            displayName: "User 2"
+      - post:
+          url: /users
+          json:
+            userId: "carol"
+            pwd: "Pass123!"
+            email: "user3@users.com"
+            displayName: "User 3"
+      - post:
+          url: /users
+          json:
+            userId: "andre"
+            pwd: "Pass123!"
+            email: "user4@users.com"
+            displayName: "User 4"

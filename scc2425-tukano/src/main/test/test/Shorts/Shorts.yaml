@@ -1,0 +1,61 @@
+config:
+  target: https://scc-backend-smd-60313-60756.azurewebsites.net/rest
+  phases:
+    - duration: 1
+      arrivalRate: 1
+  processor: "./helpers.js"
+
+scenarios:
+  - name: CreateShorts
+    flow:
+
+      - post:
+          url: /shorts/ana?pwd=Pass123!
+          capture:
+            - json: id
+              as: shortIdAna1
+            - json: blobUrl
+              as: fullBlobUrlAna1
+      - function: 'extractTokenAna1'
+
+      - post:
+          url: /shorts/ana?pwd=Pass123!
+          capture:
+            - json: id
+              as: shortIdAna2
+            - json: blobUrl
+              as: fullBlobUrlAna2
+      - function: 'extractTokenAna2'
+
+      - post:
+          url: /shorts/ana?pwd=Pass123!
+          capture:
+            - json: id
+              as: shortIdAna3
+
+      - get:
+          url: /shorts/{{ shortIdAna1 }}
+      - get:
+          url: /shorts/{{ shortIdAna2 }}
+
+      - function: "loadBinaryPayload"
+
+      - post:
+          url: /blobs/{{ shortIdAna1 }}?token={{ blobUrlTokenAna1 }}
+          headers:
+            Content-Type: application/octet-stream
+          body: "{{ payload }}"
+
+      - post:
+          url: /blobs/{{ shortIdAna2 }}?token={{ blobUrlTokenAna2 }}
+          headers:
+            Content-Type: application/octet-stream
+          body: "{{ payload }}"
+
+      - get:
+          url: /blobs/{{ shortIdAna1 }}?token={{ blobUrlTokenAna1 }}
+      - get:
+          url: /blobs/{{ shortIdAna2 }}?token={{ blobUrlTokenAna2 }}
+
+      - delete:
+          url: /shorts/{{ shortIdAna3 }}?pwd=Pass123!

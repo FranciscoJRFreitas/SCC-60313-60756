@@ -1,0 +1,39 @@
+config:
+  target: https://scc-backend-smd-60313-60756.azurewebsites.net/rest
+  phases:
+    - duration: 1
+      arrivalRate: 1
+
+scenarios:
+  - name: FollowUsersAndGetFollowers
+    flow:
+      - post:
+          url: /shorts/ana/bob/followers?pwd=Pass123!
+          json:
+            isFollowing: false
+      - post:
+          url: /shorts/ana/carol/followers?pwd=Pass123!
+          json:
+            isFollowing: false
+      - post:
+          url: /shorts/bob/carol/followers?pwd=Pass123!
+          json:
+            isFollowing: false
+      - post:
+          url: /shorts/carol/ana/followers?pwd=Pass123!
+          json:
+            isFollowing: false
+      - post:
+          url: /shorts/carol/ana/followers?pwd=Pass123!
+          json:
+            isFollowing: true
+      - post:
+          url: /shorts/bob/ana/followers?pwd=Pass123!
+          json:
+            isFollowing: false
+      - get:
+          url: /shorts/ana/followers?pwd=Pass123!
+      - get:
+          url: /shorts/bob/followers?pwd=Pass123!
+      - get:
+          url: /shorts/carol/followers?pwd=Pass123!

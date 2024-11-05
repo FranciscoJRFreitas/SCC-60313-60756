@@ -1,0 +1,15 @@
+config:
+  target: https://scc-backend-smd-60313-60756.azurewebsites.net/rest
+  phases:
+    - duration: 1
+      arrivalRate: 1
+
+scenarios:
+  - name: GetAllShorts
+    flow:
+      - get:
+          url: /shorts/ana/shorts
+      - get:
+          url: /shorts/bob/shorts
+      - get:
+          url: /shorts/carol/shorts

@@ -1,0 +1,68 @@
+config:
+  target: https://scc-backend-smd-60313-60756.azurewebsites.net/rest
+  phases:
+    - duration: 1
+      arrivalRate: 1
+
+scenarios:
+  - name: CreateShorts
+    flow:
+        - post:
+            url: /shorts/bob?pwd=Pass123!
+            capture:
+              - json: id
+                as: shortIdBob1
+
+        - post:
+            url: /shorts/bob?pwd=Pass123!
+            capture:
+              - json: id
+                as: shortIdBob2
+
+        - post:
+            url: /shorts/carol?pwd=Pass123!
+            capture:
+              - json: id
+                as: shortIdCarol1
+
+        - post:
+            url: /shorts/carol?pwd=Pass123!
+            capture:
+              - json: id
+                as: shortIdCarol2
+
+        - get:
+            url: /shorts/{{ shortIdBob1 }}
+        - get:
+            url: /shorts/{{ shortIdBob2 }}
+        - get:
+            url: /shorts/{{ shortIdCarol1 }}
+        - get:
+            url: /shorts/{{ shortIdCarol2 }}
+
+
+        - post:
+            url: /shorts/{{ shortIdCarol1 }}/ana/likes?pwd=Pass123!
+            json:
+              isLiked: false
+        - post:
+            url: /shorts/{{ shortIdCarol1 }}/ana/likes?pwd=Pass123!
+            json:
+              isLiked: true
+        - post:
+            url: /shorts/{{ shortIdBob1 }}/ana/likes?pwd=Pass123!
+            json:
+              isLiked: false
+        - post:
+            url: /shorts/{{ shortIdBob1 }}/carol/likes?pwd=Pass123!
+            json:
+              isLiked: false
+
+        - get:
+            url: /shorts/{{ shortIdBob1 }}/likes?pwd=Pass123!
+        - get:
+            url: /shorts/{{ shortIdBob2 }}/likes?pwd=Pass123!
+        - get:
+            url: /shorts/{{ shortIdCarol1 }}/likes?pwd=Pass123!
+        - get:
+            url: /shorts/{{ shortIdCarol2 }}/likes?pwd=Pass123!
