@@ -1,0 +1,15 @@
+config:
+  target: https://scc-backend-smd-60313-60756.azurewebsites.net/rest
+  phases:
+    - duration: 1
+      arrivalRate: 1
+
+scenarios:
+  - name: GetFeeds
+    flow:
+      - get:
+          url: /shorts/ana/feed?pwd=Pass123!
+      - get:
+          url: /shorts/bob/feed?pwd=Pass123!
+      - get:
+          url: /shorts/carol/feed?pwd=Pass123!

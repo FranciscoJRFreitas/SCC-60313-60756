@@ -1,0 +1,25 @@
+config:
+  target: https://scc-backend-smd-60313-60756.azurewebsites.net/rest
+  phases:
+    - duration: 1
+      arrivalRate: 1
+
+scenarios:
+  - name: GetAndSearchUsersAndDeleteAndre
+    flow:
+      - get:
+          url: /users/ana?pwd=Pass123!
+      - get:
+          url: /users/bob?pwd=Pass123!
+      - get:
+          url: /users/carol?pwd=Pass123!
+      - get:
+          url: /users/andre?pwd=Pass123!
+      - get:
+          url: /users?query=a
+      - get:
+          url: /users?query=b
+      - get:
+          url: /users?query=c
+      - delete:
+          url: /users/andre?pwd=Pass123!

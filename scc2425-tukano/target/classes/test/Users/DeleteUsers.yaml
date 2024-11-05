@@ -1,0 +1,15 @@
+config:
+  target: https://scc-backend-smd-60313-60756.azurewebsites.net/rest
+  phases:
+    - duration: 1
+      arrivalRate: 1
+
+scenarios:
+  - name: DeleteAllUsers
+    flow:
+      - delete:
+          url: /users/ana?pwd=Pass123!
+      - delete:
+          url: /users/bob?pwd=Pass123!
+      - delete:
+          url: /users/carol?pwd=Pass123!
