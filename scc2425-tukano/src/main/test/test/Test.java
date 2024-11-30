@@ -6,7 +6,7 @@ import java.nio.ByteBuffer;
 import java.util.Random;
 
 import tukano.api.Result;
-import tukano.api.User;
+import tukano.api.UserDB;
 import tukano.clients.rest.RestBlobsClient;
 import tukano.clients.rest.RestShortsClient;
 import tukano.clients.rest.RestUsersClient;
@@ -36,11 +36,11 @@ public class Test {
 		var users = new RestUsersClient( serverURI);
 		var shorts = new RestShortsClient(serverURI);
 				
-		 show(users.createUser( new User("wales", "12345", "jimmy@wikipedia.pt", "Jimmy Wales") ));
+		 show(users.createUser( new UserDB("wales", "12345", "jimmy@wikipedia.pt", "Jimmy Wales") ));
 		 
-		 show(users.createUser( new User("liskov", "54321", "liskov@mit.edu", "Barbara Liskov") ));
+		 show(users.createUser( new UserDB("liskov", "54321", "liskov@mit.edu", "Barbara Liskov") ));
 		 
-		 show(users.updateUser("wales", "12345", new User("wales", "12345", "jimmy@wikipedia.com", "" ) ));
+		 show(users.updateUser("wales", "12345", new UserDB("wales", "12345", "jimmy@wikipedia.com", "" ) ));
 		 
 		 
 		 show(users.searchUsers(""));
