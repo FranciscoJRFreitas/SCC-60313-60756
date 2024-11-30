@@ -4,7 +4,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 
 @Entity
-public class User {
+public class UserDB {
 	
 	@Id
 	private String userId;
@@ -14,9 +14,9 @@ public class User {
 	private String email;
 	private String displayName;
 
-	public User() {}
+	public UserDB() {}
 	
-	public User(String userId, String pwd, String email, String displayName) {
+	public UserDB(String userId, String pwd, String email, String displayName) {
 		this.pwd = pwd;
 		this.id = userId;
 		this.email = email;
@@ -74,15 +74,15 @@ public class User {
 	
 	@Override
 	public String toString() {
-		return "User [userId=" + userId + ", pwd=" + pwd + ", email=" + email + ", displayName=" + displayName + "]";
+		return "UserDB [userId=" + userId + ", pwd=" + pwd + ", email=" + email + ", displayName=" + displayName + "]";
 	}
 	
-	public User copyWithoutPassword() {
-		return new User(userId, "", email, displayName);
+	public UserDB copyWithoutPassword() {
+		return new UserDB(userId, "", email, displayName);
 	}
 	
-	public User updateFrom( User other ) {
-		return new User( userId, 
+	public UserDB updateFrom(UserDB other ) {
+		return new UserDB( userId,
 				other.pwd != null ? other.pwd : pwd,
 				other.email != null ? other.email : email, 
 				other.displayName != null ? other.displayName : displayName);

@@ -18,7 +18,7 @@ import tukano.api.Blobs;
 import tukano.api.Result;
 import tukano.api.Short;
 import tukano.api.Shorts;
-import tukano.api.User;
+import tukano.api.UserDB;
 import tukano.impl.data.Following;
 import tukano.impl.data.FollowingData;
 import tukano.impl.data.Likes;
@@ -467,7 +467,7 @@ public class JavaShorts implements Shorts {
 		});
 	}
 
-	protected Result<User> okUser( String userId, String pwd) {
+	protected Result<UserDB> okUser(String userId, String pwd) {
 		return JavaUsers.getInstance().getUser(userId, pwd);
 	}
 

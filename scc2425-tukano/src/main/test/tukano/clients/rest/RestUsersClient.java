@@ -6,7 +6,7 @@ import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.core.GenericType;
 import jakarta.ws.rs.core.MediaType;
 import tukano.api.Result;
-import tukano.api.User;
+import tukano.api.UserDB;
 import tukano.api.Users;
 import tukano.api.rest.RestUsers;
 
@@ -17,72 +17,72 @@ public class RestUsersClient extends tukano.clients.rest.RestClient implements U
 		super( serverURI, RestUsers.PATH );
 	}
 		
-	private Result<String> _createUser(User user) {
+	private Result<String> _createUser(UserDB user) {
 		return super.toJavaResult( 
 			target.request()
 			.accept(MediaType.APPLICATION_JSON)
 			.post(Entity.entity(user, MediaType.APPLICATION_JSON)), String.class );
 	}
 
-	private Result<User> _getUser(String userId, String pwd) {
+	private Result<UserDB> _getUser(String userId, String pwd) {
 		return super.toJavaResult(
 				target.path( userId )
 				.queryParam(RestUsers.PWD, pwd).request()
 				.accept(MediaType.APPLICATION_JSON)
-				.get(), User.class);
+				.get(), UserDB.class);
 	}
 	
-	public Result<User> _updateUser(String userId, String password, User user) {
+	public Result<UserDB> _updateUser(String userId, String password, UserDB user) {
 		return super.toJavaResult(
 				target
 				.path( userId )
 				.queryParam(RestUsers.PWD, password)
 				.request()
 				.accept(MediaType.APPLICATION_JSON)
-				.put(Entity.entity(user, MediaType.APPLICATION_JSON)), User.class);
+				.put(Entity.entity(user, MediaType.APPLICATION_JSON)), UserDB.class);
 	}
 
-	public Result<User> _deleteUser(String userId, String password) {
+	public Result<UserDB> _deleteUser(String userId, String password) {
 		return super.toJavaResult(
 				target
 				.path( userId )
 				.queryParam(RestUsers.PWD, password)
 				.request()
 				.accept(MediaType.APPLICATION_JSON)
-				.delete(), User.class);
+				.delete(), UserDB.class);
 	}
 
-	public Result<List<User>> _searchUsers(String pattern) {
+	public Result<List<UserDB>> _searchUsers(String pattern) {
 		return super.toJavaResult(
 				target
 				.queryParam(RestUsers.QUERY, pattern)
 				.request()
 				.accept(MediaType.APPLICATION_JSON)
-				.get(), new GenericType<List<User>>() {});
+				.get(), new GenericType<List<UserDB>>() {});
 	}
 
 	@Override
-	public Result<String> createUser(User user) {
+	public Result<String> createUser(UserDB user) {
 		return super.reTry( () -> _createUser(user));
 	}
 
 	@Override
-	public Result<User> getUser(String userId, String pwd) {
+	public Result<UserDB> getUser(String userId, String pwd) {
 		return super.reTry( () -> _getUser(userId, pwd));
 	}
 
 	@Override
-	public Result<User> updateUser(String userId, String pwd, User user) {
+	public Result<UserDB> updateUser(String userId, String pwd, UserDB user) {
 		return super.reTry( () -> _updateUser(userId, pwd, user));
 	}
 
 	@Override
-	public Result<User> deleteUser(String userId, String pwd) {
+	public Result<UserDB> deleteUser(String userId, String pwd) {
 		return super.reTry( () -> _deleteUser(userId, pwd));
 	}
 
 	@Override
-	public Result<List<User>> searchUsers(String pattern) {
+	public Result<List<UserDB>> searchUsers(String pattern) {
 		return super.reTry( () -> _searchUsers(pattern));
 	}
 }

@@ -14,7 +14,7 @@ import java.util.logging.Logger;
 import redis.clients.jedis.*;
 
 import tukano.api.Result;
-import tukano.api.User;
+import tukano.api.UserDB;
 import tukano.api.Users;
 import utils.Hash;
 import utils.JSON;
@@ -52,7 +52,7 @@ public class JavaUsers implements Users {
 	private JavaUsers() {}
 
 	@Override
-	public Result<String> createUser(User user) {
+	public Result<String> createUser(UserDB user) {
 		Log.info(() -> format("createUser : %s\n", user));
 
 		if (badUserInfo(user))
@@ -75,7 +75,7 @@ public class JavaUsers implements Users {
 	}
 
 	@Override
-	public Result<User> getUser(String userId, String pwd) {
+	public Result<UserDB> getUser(String userId, String pwd) {
 		Log.info(() -> format("getUser : userId = %s, pwd = %s\n", userId, pwd));
 
 		if (userId == null || pwd == null)
@@ -86,14 +86,14 @@ public class JavaUsers implements Users {
 				var key = USER_CACHE_PREFIX + userId;
 				String cachedValue = jedis.get(key);
 				if (cachedValue != null) {
-					User cachedUser = JSON.decode(cachedValue, User.class);
+					UserDB cachedUser = JSON.decode(cachedValue, UserDB.class);
                     return cachedUser.getPwd().equals(Hash.sha256(pwd)) ? Result.ok(cachedUser) : error(FORBIDDEN);
 				}
 			}
 		}
 
 		// Fallback to DB retrieval if not cached
-		Result<User> result = validatedUserOrError(dbLayer.getOne(userId, User.class, USERS_CONTAINER), pwd);
+		Result<UserDB> result = validatedUserOrError(dbLayer.getOne(userId, UserDB.class, USERS_CONTAINER), pwd);
 		if (useCache && result.isOK()) {
 			try (Jedis jedis = RedisCache.getCachePool().getResource()) {
 				var key = USER_CACHE_PREFIX + userId;
@@ -106,7 +106,7 @@ public class JavaUsers implements Users {
 	}
 
 	@Override
-	public Result<User> updateUser(String userId, String pwd, User other) {
+	public Result<UserDB> updateUser(String userId, String pwd, UserDB other) {
 		Log.info(() -> format("updateUser : userId = %s, pwd = %s, user: %s\n", userId, pwd, other));
 
 		if (badUpdateUserInfo(userId, pwd, other))
@@ -114,9 +114,9 @@ public class JavaUsers implements Users {
 
 		other.setPwd(Hash.sha256(pwd));
 
-		return errorOrResult(validatedUserOrError(dbLayer.getOne(userId, User.class, USERS_CONTAINER), pwd),
+		return errorOrResult(validatedUserOrError(dbLayer.getOne(userId, UserDB.class, USERS_CONTAINER), pwd),
 				user -> {
-					Result<User> updateResult = dbLayer.updateOne(user.updateFrom(other), USERS_CONTAINER);
+					Result<UserDB> updateResult = dbLayer.updateOne(user.updateFrom(other), USERS_CONTAINER);
 					if (useCache && updateResult.isOK()) {
 						try (Jedis jedis = RedisCache.getCachePool().getResource()) {
 							var key = USER_CACHE_PREFIX + userId;
@@ -129,13 +129,13 @@ public class JavaUsers implements Users {
 	}
 
 	@Override
-	public Result<User> deleteUser(String userId, String pwd) {
+	public Result<UserDB> deleteUser(String userId, String pwd) {
 		Log.info(() -> format("deleteUser : userId = %s, pwd = %s\n", userId, pwd));
 
 		if (userId == null || pwd == null)
 			return error(BAD_REQUEST);
 
-		return errorOrResult(validatedUserOrError(dbLayer.getOne(userId, User.class, USERS_CONTAINER), pwd), user -> {
+		return errorOrResult(validatedUserOrError(dbLayer.getOne(userId, UserDB.class, USERS_CONTAINER), pwd), user -> {
 
 			// Delete user shorts and related info asynchronously in a separate thread
 			Executors.defaultThreadFactory().newThread(() -> {
@@ -155,15 +155,15 @@ public class JavaUsers implements Users {
 	}
 
 	@Override
-	public Result<List<User>> searchUsers(String pattern) {
+	public Result<List<UserDB>> searchUsers(String pattern) {
 		Log.info(() -> format("searchUsers : pattern = %s\n", pattern));
 		String query = format("SELECT * FROM %s u WHERE UPPER(u.userId) LIKE '%%%s%%'", USERS_CONTAINER, pattern.toUpperCase());
-		Result<List<User>> result = dbLayer.query(User.class, query, USERS_CONTAINER);
+		Result<List<UserDB>> result = dbLayer.query(UserDB.class, query, USERS_CONTAINER);
 
 		if (result.isOK()) {
-			List<User> hits = result.value()
+			List<UserDB> hits = result.value()
 					.stream()
-					.map(User::copyWithoutPassword)
+					.map(UserDB::copyWithoutPassword)
 					.toList();
 			return Result.ok(hits);
 		} else {
@@ -171,7 +171,7 @@ public class JavaUsers implements Users {
 		}
 	}
 
-	private Result<User> validatedUserOrError(Result<User> res, String pwd) {
+	private Result<UserDB> validatedUserOrError(Result<UserDB> res, String pwd) {
 		if (res.isOK()) {
 			return res.value().getPwd().equals(Hash.sha256(pwd)) ? res : error(FORBIDDEN);
 		} else {
@@ -179,14 +179,14 @@ public class JavaUsers implements Users {
 		}
 	}
 
-	private boolean badUserInfo(User user) {
+	private boolean badUserInfo(UserDB user) {
 		return user.userId() == null
 				|| user.pwd() == null
 				|| user.displayName() == null
 				|| user.email() == null;
 	}
 
-	private boolean badUpdateUserInfo(String userId, String pwd, User info) {
+	private boolean badUpdateUserInfo(String userId, String pwd, UserDB info) {
 		return userId == null || pwd == null || (info.getUserId() != null && !userId.equals(info.getUserId()));
 	}
 }
