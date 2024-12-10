@@ -1,15 +1,10 @@
 package tukano.api.rest;
 
 
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.DELETE;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.Cookie;
 import jakarta.ws.rs.core.MediaType;
+import tukano.impl.auth.Authentication;
 
 @Path(RestBlobs.PATH)
 public interface RestBlobs {
@@ -23,20 +18,20 @@ public interface RestBlobs {
  	@POST
  	@Path("/{" + BLOB_ID +"}")
  	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
-	void upload(@PathParam(BLOB_ID) String blobId, byte[] bytes, @QueryParam(TOKEN) String token);
+	void upload(@CookieParam(Authentication.COOKIE_KEY) Cookie cookie, @PathParam(BLOB_ID) String blobId, byte[] bytes, @QueryParam(TOKEN) String token);
 
 
  	@GET
  	@Path("/{" + BLOB_ID +"}") 	
  	@Produces(MediaType.APPLICATION_OCTET_STREAM)
- 	byte[] download(@PathParam(BLOB_ID) String blobId, @QueryParam(TOKEN) String token);
+ 	byte[] download(@CookieParam(Authentication.COOKIE_KEY) Cookie cookie, @PathParam(BLOB_ID) String blobId, @QueryParam(TOKEN) String token);
  	
  	
 	@DELETE
 	@Path("/{" + BLOB_ID + "}")
-	void delete(@PathParam(BLOB_ID) String blobId, @QueryParam(TOKEN) String token );		
+	void delete(@CookieParam(Authentication.COOKIE_KEY) Cookie cookie, @PathParam(BLOB_ID) String blobId, @QueryParam(TOKEN) String token );
 
 	@DELETE
 	@Path("/{" + USER_ID + "}/" + BLOBS)
-	void deleteAllBlobs(@PathParam(USER_ID) String userId, @QueryParam(TOKEN) String token );		
+	void deleteAllBlobs(@CookieParam(Authentication.COOKIE_KEY) Cookie cookie, @PathParam(USER_ID) String userId, @QueryParam(TOKEN) String token );
 }

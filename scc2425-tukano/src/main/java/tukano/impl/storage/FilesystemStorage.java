@@ -25,6 +25,10 @@ public class FilesystemStorage implements BlobStorage {
 	private static final int CHUNK_SIZE = 4096;
 	private static final String DEFAULT_ROOT_DIR = "/tmp/";
 
+	public FilesystemStorage(String rootDir) {
+		this.rootDir = System.getProperty(rootDir) == null ? DEFAULT_ROOT_DIR : rootDir;
+	}
+
 	public FilesystemStorage() {
 		this.rootDir = DEFAULT_ROOT_DIR;
 	}

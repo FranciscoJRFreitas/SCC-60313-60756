@@ -11,17 +11,19 @@ import tukano.api.Result;
 import utils.Hash;
 import utils.Hex;
 
-import utils.db.AzureBlobStorage;
+import tukano.impl.storage.FilesystemStorage;
 
 public class JavaBlobs implements Blobs {
 
 	private static Blobs instance;
 	private static final Logger Log = Logger.getLogger(JavaBlobs.class.getName());
 
-	private final AzureBlobStorage storage;
+	private final FilesystemStorage storage;
 
 	private JavaBlobs() {
-		storage = new AzureBlobStorage();
+		//storage = new AzureBlobStorage();
+		String storageRootPath = System.getenv("STORAGE_PATH");
+		storage = new FilesystemStorage(storageRootPath);
 	}
 
 	synchronized public static Blobs getInstance() {
@@ -37,7 +39,7 @@ public class JavaBlobs implements Blobs {
 		if (!validBlobId(blobId, token))
 			return error(FORBIDDEN);
 
-		return storage.uploadBlob(blobId, bytes);
+		return storage.write(blobId, bytes);
 	}
 
 	@Override
@@ -47,7 +49,7 @@ public class JavaBlobs implements Blobs {
 		if (!validBlobId(blobId, token))
 			return error(FORBIDDEN);
 
-		return storage.downloadBlob(blobId);
+		return storage.read(blobId);
 	}
 
 	@Override
@@ -57,7 +59,7 @@ public class JavaBlobs implements Blobs {
 		if (!validBlobId(blobId, token))
 			return error(FORBIDDEN);
 
-		return storage.deleteBlob(blobId);
+		return storage.delete(blobId);
 	}
 
 	@Override
@@ -67,7 +69,7 @@ public class JavaBlobs implements Blobs {
 		if (!Token.isValid(token, userId))
 			return error(FORBIDDEN);
 
-		return storage.deleteAllBlobsInPath(userId);
+		return storage.delete(userId);
 	}
 
 	private boolean validBlobId(String blobId, String token) {
