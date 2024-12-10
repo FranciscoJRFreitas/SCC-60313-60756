@@ -1,6 +1,6 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+		 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>scc2425</groupId>
 	<artifactId>tukano</artifactId>
@@ -13,33 +13,33 @@
 	<build>
 		<sourceDirectory>src</sourceDirectory>
 		<plugins>
-            <plugin>
-                <groupId>com.microsoft.azure</groupId>
-                <artifactId>azure-webapp-maven-plugin</artifactId>
-                <version>2.13.0</version>
-                <configuration>
-                    <schemaVersion>V2</schemaVersion>
-                    <pricingTier>F1</pricingTier>
-                    <region>westeurope</region>
-                    <runtime>
-                        <os>linux</os>
-                        <javaVersion>Java 17</javaVersion>
-                        <webContainer>Tomcat 10.0</webContainer>
-                    </runtime>
-                    <deployment>
-                        <resources>
-                            <resource>
-                                <directory>${project.basedir}/target</directory>
-                                <includes>
-                                    <include>*.war</include>
-                                </includes>
-                            </resource>
-                        </resources>
-                    </deployment>
-                    <resourceGroup>scc-backend-rg-smd-60313-60756</resourceGroup>
-                    <appName>scc-backend-smd-60313-60756-test</appName>
-                </configuration>
-            </plugin>
+			<plugin>
+				<groupId>com.microsoft.azure</groupId>
+				<artifactId>azure-webapp-maven-plugin</artifactId>
+				<version>2.13.0</version>
+				<configuration>
+					<schemaVersion>V2</schemaVersion>
+					<pricingTier>F1</pricingTier>
+					<region>westeurope</region>
+					<runtime>
+						<os>linux</os>
+						<javaVersion>Java 17</javaVersion>
+						<webContainer>Tomcat 10.0</webContainer>
+					</runtime>
+					<deployment>
+						<resources>
+							<resource>
+								<directory>${project.basedir}/target</directory>
+								<includes>
+									<include>*.war</include>
+								</includes>
+							</resource>
+						</resources>
+					</deployment>
+					<resourceGroup>scc-backend-rg-smd-60313-60756</resourceGroup>
+					<appName>scc-backend-smd-60313-60756</appName>
+				</configuration>
+			</plugin>
 			<plugin>
 				<groupId>org.apache.tomcat.maven</groupId>
 				<artifactId>tomcat7-maven-plugin</artifactId>
@@ -85,21 +85,21 @@
 		</plugins>
 	</build>
 	<dependencies>
-        <dependency>
-            <groupId>com.azure</groupId>
-            <artifactId>azure-cosmos</artifactId>
-            <version>4.63.3</version>
-        </dependency>
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>2.0.16</version>
-        </dependency>
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-simple</artifactId>
-            <version>2.0.16</version>
-        </dependency>
+		<dependency>
+			<groupId>com.azure</groupId>
+			<artifactId>azure-cosmos</artifactId>
+			<version>4.63.3</version>
+		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+			<version>2.0.16</version>
+		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-simple</artifactId>
+			<version>2.0.16</version>
+		</dependency>
 		<dependency>
 			<groupId>org.glassfish.jersey.media</groupId>
 			<artifactId>jersey-media-json-jackson</artifactId>
@@ -190,6 +190,16 @@
 			<groupId>com.azure</groupId>
 			<artifactId>azure-storage-blob</artifactId>
 			<version>12.28.0</version>
+		</dependency>
+		<dependency>
+			<groupId>javax.ws.rs</groupId>
+			<artifactId>javax.ws.rs-api</artifactId>
+			<version>2.1.1</version>
+		</dependency>
+		<dependency>
+			<groupId>jakarta.ws.rs</groupId>
+			<artifactId>jakarta.ws.rs-api</artifactId>
+			<version>3.1.0</version>
 		</dependency>
 	</dependencies>
 </project>
