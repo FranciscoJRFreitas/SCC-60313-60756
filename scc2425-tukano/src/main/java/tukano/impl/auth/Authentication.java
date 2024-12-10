@@ -44,7 +44,8 @@ public class Authentication {
 			
 			FakeRedisLayer.getInstance().putSession( new Session( uid, user));	
 			
-            return Response.seeOther(URI.create( REDIRECT_TO_AFTER_LOGIN ))
+            return Response.ok()
+					//.seeOther(URI.create( REDIRECT_TO_AFTER_LOGIN ))
                     .cookie(cookie) 
                     .build();
 		} else
