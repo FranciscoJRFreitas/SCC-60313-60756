@@ -34,13 +34,8 @@ public class JavaUsers implements Users {
 	private static final boolean useCache;
 
 	static {
-		String dbType = System.getenv("DB_TYPE"); // "NOSQL" vs "POSTGRESQL" (backend env variable)
-		if ("POSTGRESQL".equalsIgnoreCase(dbType)) {
-			dbLayer = PostgreDBLayer.getInstance();
-		} else {
-			dbLayer = CosmosDBLayer.getInstance();
-		}
-		useCache = System.getenv("USE_CACHE").equalsIgnoreCase("true"); // "true" to use cache : "false" if not (backend env variable)
+		dbLayer = PostgreDBLayer.getInstance();
+		useCache = false;
 	}
 
 	synchronized public static Users getInstance() {

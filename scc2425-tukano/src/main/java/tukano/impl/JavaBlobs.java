@@ -22,7 +22,7 @@ public class JavaBlobs implements Blobs {
 
 	private JavaBlobs() {
 		//storage = new AzureBlobStorage();
-		String storageRootPath = System.getenv("STORAGE_PATH");
+		String storageRootPath = "mnt/media";
 		storage = new FilesystemStorage(storageRootPath);
 	}
 
