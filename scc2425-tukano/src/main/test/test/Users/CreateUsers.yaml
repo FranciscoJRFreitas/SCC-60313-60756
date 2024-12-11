@@ -1,5 +1,5 @@
 config:
-  target: https://scc-backend-smd-60313-60756.azurewebsites.net/rest
+  target: http://dns-tukano.northeurope.azurecontainer.io:8080/tukano-1/rest
   phases:
     - duration: 1
       arrivalRate: 1

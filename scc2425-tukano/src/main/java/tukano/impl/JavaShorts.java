@@ -32,7 +32,7 @@ import utils.db.RedisCache;
 public class JavaShorts implements Shorts {
 
 	private static Logger Log = Logger.getLogger(JavaShorts.class.getName());
-	private static final String REST_BACKEND_URL = System.getenv("REST_BACKEND_URL");
+	private static final String REST_BACKEND_URL ="http://dns-tukano.northeurope.azurecontainer.io:8080/tukano-1/rest";
 	private static final String SHORT_CACHE_PREFIX = "shorts:";
 	private static final String FEED_CACHE_PREFIX = "feeds:";
 	private static final String LIKE_CACHE_SUFIX = ":likes";
