@@ -11,7 +11,7 @@ public class Token {
 	private static final long MAX_TOKEN_AGE = 600000; // 10 mins default
 	private static String secret;
 
-	public void setSecret(String s) {
+	public static void setSecret(String s) {
 		secret = s;
 	}
 
