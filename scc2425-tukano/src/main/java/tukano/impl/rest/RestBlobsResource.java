@@ -18,25 +18,28 @@ public class RestBlobsResource extends RestResource implements RestBlobs {
 	
 	@Override
 	public void upload(Cookie cookie, String blobId, byte[] bytes, String token) {
-		Authentication.validateSession( cookie, "user" );
+		String userId = blobId.split("\\+")[0];
+		Authentication.validateSession( cookie, userId );
 		super.resultOrThrow( impl.upload(blobId, bytes, token));
 	}
 
 	@Override
 	public byte[] download(Cookie cookie, String blobId, String token) {
-		Authentication.validateSession( cookie, "user" );
+		String userId = blobId.split("\\+")[0];
+		Authentication.validateSession( cookie, userId );
 		return super.resultOrThrow( impl.download( blobId, token ));
 	}
 
 	@Override
 	public void delete(Cookie cookie, String blobId, String token) {
-		Authentication.validateSession( cookie, "user" );
+		String userId = blobId.split("\\+")[0];
+		Authentication.validateSession( cookie, userId );
 		super.resultOrThrow( impl.delete( blobId, token ));
 	}
 	
 	@Override
 	public void deleteAllBlobs(Cookie cookie, String userId, String password) {
-		Authentication.validateSession( cookie, "user" );
+		Authentication.validateSession( cookie, userId );
 		super.resultOrThrow( impl.deleteAllBlobs( userId, password ));
 	}
 }
