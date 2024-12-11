@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tukano
+  labels:
+    app: tukano
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tukano
+  template:
+    metadata:
+      labels:
+        app: tukano
+    spec:
+      containers:
+        - name: tukano-webapp-container
+          image: tmv.ribeiro/tukano:latest
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: data-media-volume
+              mountPath: /mnt/media
+      volumes:
+        - name: data-media-volume
+          persistentVolumeClaim:
+            claimName: data-media-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tukano-service
+spec:
+  selector:
+    app: tukano
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: LoadBalancer
