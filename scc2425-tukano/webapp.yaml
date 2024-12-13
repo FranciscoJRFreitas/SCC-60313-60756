@@ -21,11 +21,11 @@ spec:
             - containerPort: 8080
           volumeMounts:
             - name: data-media-volume
-              mountPath: /mnt/media
+              mountPath: /data/media
       volumes:
         - name: data-media-volume
           persistentVolumeClaim:
-            claimName: data-media-pvc
+            claimName: blob-pvc
 ---
 apiVersion: v1
 kind: Service

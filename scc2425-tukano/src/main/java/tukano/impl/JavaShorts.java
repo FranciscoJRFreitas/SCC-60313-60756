@@ -72,7 +72,6 @@ public class JavaShorts implements Shorts {
 				return Result.error(res.error());
 			}
 
-			JavaBlobs.getInstance().upload(shortId, new byte[0], Token.get(shortId));
 
 			if (useCache) {
 				// Cache short in Redis
