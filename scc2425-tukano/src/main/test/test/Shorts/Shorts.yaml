@@ -7,8 +7,8 @@ config:
 
 scenarios:
   - name: CreateShorts
+    beforeScenario: "login"
     flow:
-
       - post:
           url: /shorts/ana?pwd=Pass123!
           capture:
@@ -44,18 +44,29 @@ scenarios:
           url: /blobs/{{ shortIdAna1 }}?token={{ blobUrlTokenAna1 }}
           headers:
             Content-Type: application/octet-stream
+            Cookie: "scc:session={{ sessionCookie }}"
           body: "{{ payload }}"
 
       - post:
           url: /blobs/{{ shortIdAna2 }}?token={{ blobUrlTokenAna2 }}
           headers:
             Content-Type: application/octet-stream
+            Cookie: "scc:session={{ sessionCookie }}"
           body: "{{ payload }}"
 
       - get:
           url: /blobs/{{ shortIdAna1 }}?token={{ blobUrlTokenAna1 }}
+          headers:
+            Cookie: "scc:session={{ sessionCookie }}"
       - get:
           url: /blobs/{{ shortIdAna2 }}?token={{ blobUrlTokenAna2 }}
+          headers:
+            Cookie: "scc:session={{ sessionCookie }}"
 
       - delete:
           url: /shorts/{{ shortIdAna3 }}?pwd=Pass123!
+
+      - delete:
+          url: /blobs/{{ shortIdAna2 }}?token={{ blobUrlTokenAna2 }}
+          headers:
+            Cookie: "scc:session={{ sessionCookie }}"
