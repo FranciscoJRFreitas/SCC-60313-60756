@@ -29,7 +29,7 @@ function loadBinaryPayload(context, events, done) {
 async function login(context, events, next) {
     try {
         const response = await axios.post(
-            'http://dns-tukano.northeurope.azurecontainer.io:8080/tukano-1/rest/login',
+            'http://tukano-dns.northeurope.azurecontainer.io:8080/tukano-1/rest/login',
             'username=ana&password=Pass123%21',
             {
                 headers: {

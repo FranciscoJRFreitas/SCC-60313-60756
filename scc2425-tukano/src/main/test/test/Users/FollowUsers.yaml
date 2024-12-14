@@ -1,5 +1,5 @@
 config:
-  target: http://dns-tukano.northeurope.azurecontainer.io:8080/tukano-1/rest
+  target: http://tukano-dns.northeurope.azurecontainer.io:8080/tukano-1/rest
   phases:
     - duration: 1
       arrivalRate: 1

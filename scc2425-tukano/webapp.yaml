@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: tukano-webapp-container
-          image: tmv.ribeiro/tukano:latest
+          image: franciscojrfreitas/tukano:latest
           ports:
             - containerPort: 8080
           volumeMounts:
